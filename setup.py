@@ -1,0 +1,440 @@
+#!/usr/bin/env python3
+"""
+NeuroDesk Setup Wizard
+First-run API configuration wizard for NeuroDesk AI Multi-Agent System.
+Supports both CLI and Web UI modes.
+"""
+
+import json
+import os
+import sys
+import argparse
+from pathlib import Path
+from typing import Dict, Any
+import webbrowser
+
+# Add current directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from config import get_config, save_config, _get_default_config
+from core.llm_client import PROVIDER_MODELS, fetch_available_models
+
+
+def run_cli_wizard() -> Dict[str, Any]:
+    """Run the setup wizard in CLI mode."""
+    print("\n" + "=" * 60)
+    print("  NEURODESK - API Configuration Wizard")
+    print("=" * 60)
+    print("\nConfigure API keys and models for all agents.\n")
+
+    providers = [
+        ("1", "Ollama", "Local LLM - No API key required"),
+        ("2", "OpenRouter", "Free models available - API key required"),
+        ("3", "NVIDIA NIM", "Free credits available - API key required"),
+        ("4", "Google Gemini", "Google's AI model - API key required"),
+        ("5", "OpenAI", "OpenAI models - API key required")
+    ]
+
+    config = _get_default_config()
+
+    for agent_name, agent_display in [
+        ("MAB", "Main Agent Brain (Orchestrator)"),
+        ("SAB1", "Sub Agent 1 (Research Analyst)"),
+        ("SAB2", "Sub Agent 2 (Strategy Specialist)"),
+        ("SAB3", "Sub Agent 3 (Content Writer)")
+    ]:
+        print(f"\n{'─' * 60}")
+        print(f"CONFIGURING: {agent_name} - {agent_display}")
+        print(f"{'─' * 60}\n")
+
+        # Show provider options
+        print("Available providers (showing Priority 1 first):")
+        for num, provider, desc in providers:
+            print(f"  {num}. {provider:20s} - {desc}")
+
+        # Get provider selection
+        while True:
+            provider_choice = input(f"\nSelect provider for {agent_name} [1-5]: ").strip()
+            if provider_choice in ["1", "2", "3", "4", "5"]:
+                break
+            print("Invalid choice. Please enter 1-5.")
+
+        selected_provider = providers[int(provider_choice) - 1][1]
+
+        # Get API key
+        api_key = ""
+        if selected_provider == "Ollama":
+            api_key = "local"
+            print("✓ Ollama selected - using local LLM (no API key needed)")
+        else:
+            api_key = input(f"Enter API key for {selected_provider}: ").strip()
+            while not api_key:
+                print("API key cannot be empty.")
+                api_key = input(f"Enter API key for {selected_provider}: ").strip()
+
+        # Get model name
+        models = []
+        fetch_choice = input(f"\nFetch available models for {selected_provider}? [y/N]: ").strip().lower()
+        if fetch_choice in ['y', 'yes']:
+            print("Fetching models...")
+            try:
+                import asyncio
+                models = asyncio.run(fetch_available_models(selected_provider, api_key))
+                if models:
+                    print("\nFetched models:")
+                    for i, model in enumerate(models, 1):
+                        print(f"  {i}. {model}")
+                else:
+                    print("No models found. Falling back to suggestions.")
+            except Exception as e:
+                print(f"Error fetching models: {e}. Falling back to suggestions.")
+        
+        if not models:
+            print(f"\nSuggested models for {selected_provider}:")
+            models = PROVIDER_MODELS.get(selected_provider, {}).get("suggested_models", [])
+            for i, model in enumerate(models, 1):
+                print(f"  {i}. {model}")
+
+        model_choice = input(f"\nEnter model name or number [press Enter for default]: ").strip()
+        if model_choice:
+            if model_choice.isdigit() and 1 <= int(model_choice) <= len(models):
+                selected_model = models[int(model_choice) - 1]
+            else:
+                selected_model = model_choice
+        else:
+            selected_model = models[0] if models else "llama3:8b"
+
+        config[agent_name] = {
+            "provider": selected_provider,
+            "api_key": api_key,
+            "model": selected_model
+        }
+
+        print(f"\n✓ {agent_name} configured:")
+        print(f"  Provider: {selected_provider}")
+        print(f"  Model: {selected_model}")
+
+    # Show summary and confirm
+    print("\n" + "=" * 60)
+    print("  CONFIGURATION SUMMARY")
+    print("=" * 60)
+
+    for agent_name in ["MAB", "SAB1", "SAB2", "SAB3"]:
+        agent_config = config[agent_name]
+        print(f"\n{agent_name}:")
+        print(f"  Provider: {agent_config['provider']}")
+        print(f"  Model: {agent_config['model']}")
+        if agent_config['provider'] != 'Ollama':
+            # Show only last 4 chars of API key
+            api_key_display = "sk-" + agent_config['api_key'][-4:] if len(agent_config['api_key']) > 4 else "sk-****"
+            print(f"  API Key: {api_key_display}...")
+
+    print("\n" + "=" * 60)
+
+    while True:
+        confirm = input("\nSave this configuration? [Y/n]: ").strip().lower()
+        if confirm in ["", "y", "yes"]:
+            break
+        elif confirm in ["n", "no"]:
+            print("Restarting configuration...")
+            return run_cli_wizard()
+        print("Please enter Y or n.")
+
+    return config
+
+
+def run_web_wizard(port: int = 8080) -> Dict[str, Any]:
+    """Run the setup wizard in web UI mode."""
+    # Create setup HTML template
+    setup_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroDesk - Setup Wizard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #efefef; padding: 40px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 40px; }
+        h2 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #2a2a2a; }
+        .agent-section { background: #1a1a1a; border-radius: 12px; padding: 30px; margin-bottom: 30px; border: 1px solid #2a2a2a; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; color: #888; }
+        select, input[type="text"], input[type="password"] { width: 100%; padding: 12px; background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 6px; color: #efefef; font-size: 14px; }
+        select:focus, input:focus { outline: none; border-color: #4f98a3; }
+        .provider-info { padding: 10px 15px; background: #252525; border-radius: 6px; margin-top: 8px; font-size: 13px; color: #888; }
+        .summary { background: #1a1a1a; border-radius: 12px; padding: 30px; margin-bottom: 30px; }
+        .summary-item { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #2a2a2a; }
+        .summary-item:last-child { border-bottom: none; }
+        .agent-name { font-weight: 600; color: #4f98a3; }
+        .config-value { color: #888; font-family: monospace; }
+        button { padding: 15px 40px; background: #4f98a3; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+        button:hover { background: #45868e; }
+        button.secondary { background: #2a2a2a; }
+        button.secondary:hover { background: #3a3a3a; }
+        .success { color: #4caf76; text-align: center; padding: 40px; }
+        .btn-group { display: flex; gap: 15px; }
+        .btn-group button { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 NeuroDesk Setup Wizard</h1>
+        <p style="text-align: center; color: #888; margin-bottom: 40px;">Configure your AI agents</p>
+
+        <form id="setup-form">
+            <!-- MAB Config -->
+            <div class="agent-section" data-agent="MAB">
+                <h2>Main Agent Brain (Orchestrator)</h2>
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select class="provider-select" data-agent="MAB">
+                        <option value="Ollama">Ollama (Local)</option>
+                        <option value="OpenRouter">OpenRouter</option>
+                        <option value="NVIDIA NIM">NVIDIA NIM</option>
+                        <option value="Google Gemini">Google Gemini</option>
+                        <option value="OpenAI">OpenAI</option>
+                    </select>
+                </div>
+                <div class="form-group api-key-group">
+                    <label>API Key</label>
+                    <input type="password" class="api-key-input" data-agent="MAB" placeholder="sk-..."/>
+                </div>
+                <div class="form-group">
+                    <label>Model Name</label>
+                    <input type="text" class="model-input" data-agent="MAB" value="llama3:8b"/>
+                </div>
+            </div>
+
+            <!-- SAB1 Config -->
+            <div class="agent-section" data-agent="SAB1">
+                <h2>Sub Agent 1 (Research Analyst)</h2>
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select class="provider-select" data-agent="SAB1">
+                        <option value="Ollama">Ollama (Local)</option>
+                        <option value="OpenRouter">OpenRouter</option>
+                        <option value="NVIDIA NIM">NVIDIA NIM</option>
+                        <option value="Google Gemini">Google Gemini</option>
+                        <option value="OpenAI">OpenAI</option>
+                    </select>
+                </div>
+                <div class="form-group api-key-group">
+                    <label>API Key</label>
+                    <input type="password" class="api-key-input" data-agent="SAB1" placeholder="sk-..."/>
+                </div>
+                <div class="form-group">
+                    <label>Model Name</label>
+                    <input type="text" class="model-input" data-agent="SAB1" value="llama3:8b"/>
+                </div>
+            </div>
+
+            <!-- SAB2 Config -->
+            <div class="agent-section" data-agent="SAB2">
+                <h2>Sub Agent 2 (Strategy Specialist)</h2>
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select class="provider-select" data-agent="SAB2">
+                        <option value="Ollama">Ollama (Local)</option>
+                        <option value="OpenRouter">OpenRouter</option>
+                        <option value="NVIDIA NIM">NVIDIA NIM</option>
+                        <option value="Google Gemini">Google Gemini</option>
+                        <option value="OpenAI">OpenAI</option>
+                    </select>
+                </div>
+                <div class="form-group api-key-group">
+                    <label>API Key</label>
+                    <input type="password" class="api-key-input" data-agent="SAB2" placeholder="sk-..."/>
+                </div>
+                <div class="form-group">
+                    <label>Model Name</label>
+                    <input type="text" class="model-input" data-agent="SAB2" value="llama3:8b"/>
+                </div>
+            </div>
+
+            <!-- SAB3 Config -->
+            <div class="agent-section" data-agent="SAB3">
+                <h2>Sub Agent 3 (Content Writer)</h2>
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select class="provider-select" data-agent="SAB3">
+                        <option value="Ollama">Ollama (Local)</option>
+                        <option value="OpenRouter">OpenRouter</option>
+                        <option value="NVIDIA NIM">NVIDIA NIM</option>
+                        <option value="Google Gemini">Google Gemini</option>
+                        <option value="OpenAI">OpenAI</option>
+                    </select>
+                </div>
+                <div class="form-group api-key-group">
+                    <label>API Key</label>
+                    <input type="password" class="api-key-input" data-agent="SAB3" placeholder="sk-..."/>
+                </div>
+                <div class="form-group">
+                    <label>Model Name</label>
+                    <input type="text" class="model-input" data-agent="SAB3" value="llama3:8b"/>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit">Save & Launch</button>
+                <button type="button" class="secondary" onclick="location.reload()">Reset</button>
+            </div>
+        </form>
+
+        <div id="success-view" class="success" style="display: none;">
+            <h2 style="color: #4caf76;">Setup Complete!</h2>
+            <p>NeuroDesk is now configured and ready to use.</p>
+            <p style="margin-top: 20px;">Click below to launch the application.</p>
+            <button onclick="location.href='/app'" style="margin-top: 20px;">Launch NeuroDesk</button>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide API key based on provider
+        document.querySelectorAll('.provider-select').forEach(select => {
+            select.addEventListener('change', () => {
+                const agent = select.dataset.agent;
+                const apiKeyGroup = document.querySelector(`.api-key-group[data-agent="${agent}"]`);
+                if (select.value === 'Ollama') {
+                    apiKeyGroup.style.display = 'none';
+                } else {
+                    apiKeyGroup.style.display = 'block';
+                }
+            });
+            // Trigger on load
+            select.dispatchEvent(new Event('change'));
+        });
+
+        // Form submission
+        document.getElementById('setup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const config = {
+                MAB: getAgentConfig('MAB'),
+                SAB1: getAgentConfig('SAB1'),
+                SAB2: getAgentConfig('SAB2'),
+                SAB3: getAgentConfig('SAB3')
+            };
+
+            try {
+                await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                document.querySelector('.container').style.display = 'none';
+                document.getElementById('success-view').style.display = 'block';
+
+                // Notify parent that setup is complete
+                if (window.opener) {
+                    window.opener.postMessage('neurodesk-setup-complete', '*');
+                }
+            } catch (error) {
+                alert('Error saving configuration: ' + error.message);
+            }
+        });
+
+        function getAgentConfig(agent) {
+            return {
+                provider: document.querySelector(`.provider-select[data-agent="${agent}"]`).value,
+                api_key: document.querySelector(`.api-key-input[data-agent="${agent}"]`).value,
+                model: document.querySelector(`.model-input[data-agent="${agent}"]`).value
+            };
+        }
+    </script>
+</body>
+</html>
+"""
+
+    # Write setup HTML
+    setup_path = Path(__file__).parent / "frontend" / "setup.html"
+    setup_path.parent.mkdir(parents=True, exist_ok=True)
+    setup_path.write_text(setup_html)
+
+    print(f"\n{'=' * 60}")
+    print("  Starting Web Setup Wizard")
+    print("=" * 60)
+    print(f"\nOpen your browser and go to: http://localhost:{port}/setup")
+    print("Press Ctrl+C to stop the server.\n")
+
+    # Start simple HTTP server
+    import http.server
+    import socketserver
+
+    class SetupHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
+
+        def do_GET(self):
+            if self.path == '/':
+                self.path = 'frontend/setup.html'
+            elif self.path == '/setup':
+                self.path = 'frontend/setup.html'
+            return super().do_GET()
+
+        def end_headers(self):
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            super().end_headers()
+
+    # Handle POST for config
+    def do_POST(self):
+        if self.path == '/config':
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length).decode('utf-8')
+                try:
+                    config = json.loads(body)
+                    save_config(config)
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode())
+            else:
+                self.send_response(400)
+                self.end_headers()
+        else:
+            self.send_error(404)
+
+    SetupHandler.do_POST = do_POST
+
+    with socketserver.TCPServer(("", port), SetupHandler) as httpd:
+        print(f"Serving on port {port}...")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServer stopped.")
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="NeuroDesk Setup Wizard")
+    parser.add_argument("--mode", choices=["cli", "web"], default="cli",
+                        help="Mode to run setup wizard in")
+    parser.add_argument("--port", type=int, default=8080,
+                        help="Port for web mode (default: 8080)")
+
+    args = parser.parse_args()
+
+    if args.mode == "cli":
+        config = run_cli_wizard()
+        if save_config(config):
+            print("\n✓ Configuration saved successfully!")
+            print("\nTo run the application, execute: python -m main")
+        else:
+            print("\n✗ Failed to save configuration.")
+            sys.exit(1)
+    else:
+        run_web_wizard(args.port)
+
+
+if __name__ == "__main__":
+    main()

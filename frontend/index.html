@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroDesk - AI Multi-Agent System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Satoshi:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    Neuro<span>Desk</span>
+                </div>
+            </div>
+            <div class="nav-group">
+                <div class="nav-item mab active" data-tab="mab">
+                    <span class="nav-icon">🧠</span>
+                    <span class="nav-label">MAB</span>
+                </div>
+                <div class="nav-item sab1" data-tab="sab1">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">SAB1</span>
+                </div>
+                <div class="nav-item sab2" data-tab="sab2">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">SAB2</span>
+                </div>
+                <div class="nav-item sab3" data-tab="sab3">
+                    <span class="nav-icon">✍️</span>
+                    <span class="nav-label">SAB3</span>
+                </div>
+                <div class="nav-item history" data-tab="history">
+                    <span class="nav-icon">🕒</span>
+                    <span class="nav-label">Session History</span>
+                </div>
+                <div class="nav-item settings" data-tab="settings" style="margin-top: auto;">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-title">
+                    <h1 class="page-title" id="page-title">Campaign Mode</h1>
+                    <div class="platform-label">Platform: <span id="platform-display">All</span></div>
+                </div>
+                <div class="header-controls">
+                    <div class="platform-selector">
+                        <button data-platform="Instagram" class="platform-btn">Instagram</button>
+                        <button data-platform="LinkedIn" class="platform-btn">LinkedIn</button>
+                        <button data-platform="Facebook" class="platform-btn">Facebook</button>
+                        <button data-platform="Twitter/X" class="platform-btn">Twitter/X</button>
+                        <button data-platform="All" class="platform-btn active">All</button>
+                    </div>
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- MAB Tab -->
+                <div class="tab-content active" id="mab-tab">
+                    <div class="campaign-tab">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="mab-chat-messages">
+                                <div class="chat-message agent">
+                                    <div class="chat-avatar">🧠</div>
+                                    <div class="chat-content">
+                                        <div class="message-text">Hello! I'm NeuroDesk's Main Agent Brain. Tell me about your marketing goal and I'll orchestrate a team of specialized agents to create a comprehensive campaign for you.</div>
+                                        <div class="chat-meta">
+                                            <span class="agent-badge">MAB</span>
+                                            <span class="timestamp">Just now</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-group">
+                                    <textarea id="mab-input" placeholder="Enter your campaign goal..."></textarea>
+                                </div>
+                                <button class="send-btn" id="mab-send">Send</button>
+                                <button class="attach-btn" title="Attach file">📎</button>
+                                <button class="run-campaign-btn" id="run-campaign-btn">Run Full Campaign</button>
+                            </div>
+                        </div>
+                        <div class="activity-panel">
+                            <div class="activity-header">
+                                <span class="activity-title">Activity Stream</span>
+                                <span class="activity-timer" id="activity-timer">00:00:00</span>
+                            </div>
+                            <div class="activity-messages" id="activity-messages">
+                                <div class="activity-message mab">
+                                    <div class="timestamp">Just now</div>
+                                    <div class="message">🧠 MAB: System initialized</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SAB1 Tab -->
+                <div class="tab-content" id="sab1-tab">
+                    <div class="campaign-tab">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="sab1-chat-messages">
+                                <div class="chat-message agent sab1">
+                                    <div class="chat-avatar">🔍</div>
+                                    <div class="chat-content">
+                                        <div class="message-text">Hello! I'm SAB1, the Market Research Analyst. Ask me to research competitors, audience insights, market trends, or any data you need for your marketing campaign.</div>
+                                        <div class="chat-meta">
+                                            <span class="agent-badge">SAB1</span>
+                                            <span class="timestamp">Just now</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-group">
+                                    <textarea id="sab1-input" placeholder="Ask SAB1 about research..."></textarea>
+                                </div>
+                                <button class="send-btn" id="sab1-send">Send</button>
+                                <button class="attach-btn" title="Attach file">📎</button>
+                            </div>
+                        </div>
+                        <div class="right-panel">
+                            <div class="right-panel-title">Agent Info</div>
+                            <div class="right-panel-content">
+                                <div class="agent-info-card">
+                                    <div class="agent-name">SAB1</div>
+                                    <div class="agent-role">Market Research Analyst</div>
+                                    <div class="agent-status idle">Idle</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Provider</div>
+                                    <div class="agent-role" id="sab1-provider">Ollama</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Model</div>
+                                    <div class="agent-role" id="sab1-model">llama3:8b</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Tools</div>
+                                    <div class="agent-role" id="sab1-tools">serper_search, website_scraper</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SAB2 Tab -->
+                <div class="tab-content" id="sab2-tab">
+                    <div class="campaign-tab">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="sab2-chat-messages">
+                                <div class="chat-message agent sab2">
+                                    <div class="chat-avatar">📊</div>
+                                    <div class="chat-content">
+                                        <div class="message-text">Hello! I'm SAB2, the Marketing Strategy Specialist. I'll create a comprehensive 30-day content strategy based on the research findings.</div>
+                                        <div class="chat-meta">
+                                            <span class="agent-badge">SAB2</span>
+                                            <span class="timestamp">Just now</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-group">
+                                    <textarea id="sab2-input" placeholder="Ask SAB2 about strategy..."></textarea>
+                                </div>
+                                <button class="send-btn" id="sab2-send">Send</button>
+                                <button class="attach-btn" title="Attach file">📎</button>
+                            </div>
+                        </div>
+                        <div class="right-panel">
+                            <div class="right-panel-title">Agent Info</div>
+                            <div class="right-panel-content">
+                                <div class="agent-info-card">
+                                    <div class="agent-name">SAB2</div>
+                                    <div class="agent-role">Strategy Specialist</div>
+                                    <div class="agent-status idle">Idle</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Provider</div>
+                                    <div class="agent-role" id="sab2-provider">Ollama</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Model</div>
+                                    <div class="agent-role" id="sab2-model">llama3:8b</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SAB3 Tab -->
+                <div class="tab-content" id="sab3-tab">
+                    <div class="campaign-tab">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="sab3-chat-messages">
+                                <div class="chat-message agent sab3">
+                                    <div class="chat-avatar">✍️</div>
+                                    <div class="chat-content">
+                                        <div class="message-text">Hello! I'm SAB3, the Senior Copywriter. I'll create ready-to-publish marketing content based on the research and strategy.</div>
+                                        <div class="chat-meta">
+                                            <span class="agent-badge">SAB3</span>
+                                            <span class="timestamp">Just now</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-group">
+                                    <textarea id="sab3-input" placeholder="Ask SAB3 about content..."></textarea>
+                                </div>
+                                <button class="send-btn" id="sab3-send">Send</button>
+                                <button class="attach-btn" title="Attach file">📎</button>
+                            </div>
+                        </div>
+                        <div class="right-panel">
+                            <div class="right-panel-title">Agent Info</div>
+                            <div class="right-panel-content">
+                                <div class="agent-info-card">
+                                    <div class="agent-name">SAB3</div>
+                                    <div class="agent-role">Senior Copywriter</div>
+                                    <div class="agent-status idle">Idle</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Provider</div>
+                                    <div class="agent-role" id="sab3-provider">Ollama</div>
+                                </div>
+                                <div class="agent-info-card">
+                                    <div class="agent-name">Model</div>
+                                    <div class="agent-role" id="sab3-model">llama3:8b</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="tab-content settings-tab" id="settings-tab">
+                    <div class="settings-header">
+                        <h2>Settings</h2>
+                        <p>Configure agents, pre-instructions, and API keys</p>
+                    </div>
+                    <div class="settings-grid">
+                        <!-- MAB Settings -->
+                        <div class="agent-config-card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="agent-name">MAB - Main Agent Brain</div>
+                                    <div class="agent-role">Orchestrator & Manager</div>
+                                </div>
+                                <span class="agent-status working">Active</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Provider</label>
+                                <select class="provider-select" data-agent="MAB">
+                                    <option value="Ollama">Ollama (Local)</option>
+                                    <option value="OpenRouter">OpenRouter</option>
+                                    <option value="NVIDIA NIM">NVIDIA NIM</option>
+                                    <option value="Google Gemini">Google Gemini</option>
+                                    <option value="OpenAI">OpenAI</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" class="api-key-input" data-agent="MAB" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; justify-content: space-between; align-items: center;">
+                                    Model Name
+                                    <button class="fetch-models-btn" data-agent="MAB" style="padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--bg-border); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer;">Fetch Models</button>
+                                </label>
+                                <div class="model-input-container" data-agent="MAB">
+                                    <input type="text" class="model-input" data-agent="MAB" value="llama3:8b" placeholder="llama3:8b"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Pre-Instruction</label>
+                                <textarea class="pre-instruction-textarea" data-agent="MAB" rows="4"></textarea>
+                            </div>
+                            <button class="save-btn" data-agent="MAB">Save Configuration</button>
+                        </div>
+
+                        <!-- SAB1 Settings -->
+                        <div class="agent-config-card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="agent-name">SAB1 - Research Analyst</div>
+                                    <div class="agent-role">Market Research</div>
+                                </div>
+                                <span class="agent-status idle">Idle</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Provider</label>
+                                <select class="provider-select" data-agent="SAB1">
+                                    <option value="Ollama">Ollama (Local)</option>
+                                    <option value="OpenRouter">OpenRouter</option>
+                                    <option value="NVIDIA NIM">NVIDIA NIM</option>
+                                    <option value="Google Gemini">Google Gemini</option>
+                                    <option value="OpenAI">OpenAI</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" class="api-key-input" data-agent="SAB1" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; justify-content: space-between; align-items: center;">
+                                    Model Name
+                                    <button class="fetch-models-btn" data-agent="SAB1" style="padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--bg-border); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer;">Fetch Models</button>
+                                </label>
+                                <div class="model-input-container" data-agent="SAB1">
+                                    <input type="text" class="model-input" data-agent="SAB1" value="llama3:8b" placeholder="llama3:8b"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Pre-Instruction</label>
+                                <textarea class="pre-instruction-textarea" data-agent="SAB1" rows="4"></textarea>
+                            </div>
+                            <button class="save-btn" data-agent="SAB1">Save Configuration</button>
+                        </div>
+
+                        <!-- SAB2 Settings -->
+                        <div class="agent-config-card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="agent-name">SAB2 - Strategy Specialist</div>
+                                    <div class="agent-role">Content Strategy</div>
+                                </div>
+                                <span class="agent-status idle">Idle</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Provider</label>
+                                <select class="provider-select" data-agent="SAB2">
+                                    <option value="Ollama">Ollama (Local)</option>
+                                    <option value="OpenRouter">OpenRouter</option>
+                                    <option value="NVIDIA NIM">NVIDIA NIM</option>
+                                    <option value="Google Gemini">Google Gemini</option>
+                                    <option value="OpenAI">OpenAI</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" class="api-key-input" data-agent="SAB2" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; justify-content: space-between; align-items: center;">
+                                    Model Name
+                                    <button class="fetch-models-btn" data-agent="SAB2" style="padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--bg-border); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer;">Fetch Models</button>
+                                </label>
+                                <div class="model-input-container" data-agent="SAB2">
+                                    <input type="text" class="model-input" data-agent="SAB2" value="llama3:8b" placeholder="llama3:8b"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Pre-Instruction</label>
+                                <textarea class="pre-instruction-textarea" data-agent="SAB2" rows="4"></textarea>
+                            </div>
+                            <button class="save-btn" data-agent="SAB2">Save Configuration</button>
+                        </div>
+
+                        <!-- SAB3 Settings -->
+                        <div class="agent-config-card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="agent-name">SAB3 - Content Writer</div>
+                                    <div class="agent-role">Copywriting</div>
+                                </div>
+                                <span class="agent-status idle">Idle</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Provider</label>
+                                <select class="provider-select" data-agent="SAB3">
+                                    <option value="Ollama">Ollama (Local)</option>
+                                    <option value="OpenRouter">OpenRouter</option>
+                                    <option value="NVIDIA NIM">NVIDIA NIM</option>
+                                    <option value="Google Gemini">Google Gemini</option>
+                                    <option value="OpenAI">OpenAI</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" class="api-key-input" data-agent="SAB3" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; justify-content: space-between; align-items: center;">
+                                    Model Name
+                                    <button class="fetch-models-btn" data-agent="SAB3" style="padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--bg-border); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer;">Fetch Models</button>
+                                </label>
+                                <div class="model-input-container" data-agent="SAB3">
+                                    <input type="text" class="model-input" data-agent="SAB3" value="llama3:8b" placeholder="llama3:8b"/>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Pre-Instruction</label>
+                                <textarea class="pre-instruction-textarea" data-agent="SAB3" rows="4"></textarea>
+                            </div>
+                            <button class="save-btn" data-agent="SAB3">Save Configuration</button>
+                        </div>
+                    </div>
+
+                    <div class="tool-registry-section">
+                        <h3>Tool Registry</h3>
+                        <table class="registry-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Assigned to</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tool-registry-body">
+                                <tr>
+                                    <td>serper_search</td>
+                                    <td><span class="tool-status installed">Installed</span></td>
+                                    <td>SAB1</td>
+                                    <td><button class="btn btn-sm btn-danger" data-tool="serper_search">Remove</button></td>
+                                </tr>
+                                <tr>
+                                    <td>website_scraper</td>
+                                    <td><span class="tool-status uninstalled">Not Installed</span></td>
+                                    <td>SAB1, SAB2</td>
+                                    <td><button class="btn btn-sm btn-secondary" data-tool="website_scraper">Install</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <button class="add-tool-btn" id="add-tool-btn">+ Add Tool</button>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Session History Tab -->
+                <div class="tab-content" id="history-tab">
+                    <div class="settings-tab">
+                        <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h2>Session History</h2>
+                                <p class="text-muted" style="font-size: 0.85rem; margin-top: 8px;">View and resume your past campaigns.</p>
+                            </div>
+                            <button class="btn btn-primary" id="new-session-btn">+ New Session</button>
+                        </div>
+                        <div class="history-list" id="history-list" style="display: flex; flex-direction: column; gap: 16px;">
+                            <!-- Sessions populated via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Tool Modal -->
+    <div class="modal-overlay" id="add-tool-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add Tool</h2>
+                <button class="modal-close" id="add-tool-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tool Name</label>
+                    <input type="text" id="tool-name" placeholder="e.g., linkedin_scraper"/>
+                </div>
+                <div class="form-group">
+                    <label>Tool Path</label>
+                    <input type="text" id="tool-path" placeholder="tools/linkedin_scraper.py"/>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="tool-description" rows="2" placeholder="Tool description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Assign to Agents</label>
+                    <select id="tool-assign" multiple style="width: 100%; padding: var(--spacing-sm); background-color: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: var(--radius-sm); color: var(--text-primary);">
+                        <option value="SAB1">SAB1 (Research)</option>
+                        <option value="SAB2">SAB2 (Strategy)</option>
+                        <option value="SAB3">SAB3 (Content)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="add-tool-cancel">Cancel</button>
+                <button class="btn btn-primary" id="add-tool-submit">Add Tool</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Output Modal -->
+    <div class="modal-overlay" id="output-modal" style="display: none;">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 class="modal-title">Campaign Output</h2>
+                <button class="modal-close" id="output-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="output-section">
+                    <div class="output-header">
+                        <h3>Final Campaign Report</h3>
+                        <div class="output-actions">
+                            <button class="btn btn-secondary" id="copy-output">Copy</button>
+                            <button class="btn btn-secondary" id="download-md">Download .md</button>
+                            <button class="btn btn-secondary" id="download-txt">Download .txt</button>
+                        </div>
+                    </div>
+                    <div class="output-content" id="output-content">
+                        <!-- Output will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
