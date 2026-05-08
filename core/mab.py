@@ -6,6 +6,8 @@ The orchestrator and manager of the multi-agent team.
 import json
 import asyncio
 import time
+import re
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from pathlib import Path
 import sys
@@ -16,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.llm_client import LLMClient
 from core.tool_registry import ToolRegistry
 from core.task_manager import TaskManager, Task
-from core.memory_manager import get_memory_manager, MemoryManager
 from config import get_config
+import memory.db as db
 
 
 class MAB:
@@ -28,7 +30,6 @@ class MAB:
         self.llm_client = None
         self.tool_registry = ToolRegistry()
         self.task_manager = TaskManager()
-        self.memory_manager = MemoryManager("MAB")
         self.provider = self.config.get("MAB", {}).get("provider", "Ollama")
         self.api_key = self.config.get("MAB", {}).get("api_key", "")
         self.model = self.config.get("MAB", {}).get("model", "llama3:8b")
@@ -80,44 +81,49 @@ When the user DOES provide a campaign goal, your responsibilities are:
 
     async def run(self, user_goal: str, stream_callback: Callable = None) -> Dict[str, Any]:
         """Execute MAB workflow with real-time streaming."""
-        self.initialize()
+        try:
+            self.initialize()
 
-        context = []
+            context = []
 
-        # Step 1: Understand goal
-        await self._stream("thinking", "🧠 MAB: Understanding your marketing goal...", stream_callback)
-        context.append(f"User Goal: {user_goal}")
+            # Step 1: Understand goal
+            await self._stream("thinking", "🧠 MAB: Understanding your marketing goal...", stream_callback)
+            context.append(f"User Goal: {user_goal}")
 
-        # Step 2: Plan tasks
-        await self._stream("thinking", "🧠 MAB: Breaking your goal into 3 tasks...", stream_callback)
-        task_plan = await self._create_task_plan(user_goal, stream_callback)
-        context.append(f"Task Plan: {json.dumps(task_plan, indent=2)}")
+            # Step 2: Plan tasks
+            await self._stream("thinking", "🧠 MAB: Breaking your goal into 3 tasks...", stream_callback)
+            task_plan = await self._create_task_plan(user_goal, stream_callback)
+            context.append(f"Task Plan: {json.dumps(task_plan, indent=2)}")
 
-        # Step 3: Tool check
-        await self._stream("tool_check", f"🔍 MAB: Checking tools... {len(task_plan.get('tools_required', []))} required", stream_callback)
-        tool_status = await self._check_tools(task_plan.get('tools_required', []), stream_callback)
-        context.append(f"Tools: {json.dumps(tool_status, indent=2)}")
+            # Step 3: Tool check
+            await self._stream("tool_check", f"🔍 MAB: Checking tools... {len(task_plan.get('tools_required', []))} required", stream_callback)
+            tool_status = await self._check_tools(task_plan.get('tools_required', []), stream_callback)
+            context.append(f"Tools: {json.dumps(tool_status, indent=2)}")
 
-        # Step 4: Assign and execute tasks
-        await self._stream("thinking", "🧠 MAB: Assigning tasks to sub-agents...", stream_callback)
-        task_results = await self._execute_tasks(task_plan.get('tasks', []), stream_callback)
-        context.append(f"Task Results: {json.dumps(task_results, indent=2)}")
+            # Step 4: Assign and execute tasks
+            await self._stream("thinking", "🧠 MAB: Assigning tasks to sub-agents...", stream_callback)
+            task_results = await self._execute_tasks(task_plan.get('tasks', []), stream_callback)
+            context.append(f"Task Results: {json.dumps(task_results, indent=2)}")
 
-        # Step 5: Synthesize final output
-        await self._stream("thinking", "🧠 MAB: Synthesizing final campaign report...", stream_callback)
-        final_output = await self._synthesize_output(task_results, stream_callback)
-        context.append(f"Final Output: {final_output}")
+            # Synthesize final output
+            await self._stream("thinking", "🧠 MAB: Synthesizing final campaign report...", stream_callback)
+            final_output = await self._synthesize_output(task_results, stream_callback)
+            context.append(f"Final Output: {final_output}")
 
-        # Step 6: Save to memory
-        await self._save_to_memory(user_goal, final_output)
-
-        return {
-            "success": True,
-            "user_goal": user_goal,
-            "final_output": final_output,
-            "tasks": task_results,
-            "tools": tool_status
-        }
+            return {
+                "success": True,
+                "user_goal": user_goal,
+                "final_output": final_output,
+                "tasks": task_results,
+                "tools": tool_status
+            }
+        except Exception as e:
+            await self._stream("error", f"❌ MAB Error: {str(e)}", stream_callback)
+            return {
+                "success": False,
+                "error": str(e),
+                "result": f"Execution failed: {str(e)}"
+            }
 
     async def _stream(self, message_type: str, message: str, callback: Callable = None, **kwargs):
         """Stream a message to the callback."""
@@ -195,7 +201,7 @@ When the user DOES provide a campaign goal, your responsibilities are:
                 await self._stream("tool_check", f"⚠️ Tool '{tool}' not found. Searching GitHub...", stream_callback)
 
                 # Try to find and install
-                github_url = self.tool_registry.search_github(tool)
+                github_url = await self.tool_registry.search_github(tool)
                 if github_url:
                     await self._stream("tool_check", f"📂 Found '{tool}' on GitHub: {github_url}", stream_callback)
                     success = await self.tool_registry.download_tool(tool, github_url)
@@ -271,20 +277,21 @@ When the user DOES provide a campaign goal, your responsibilities are:
                 system_prompt="Synthesize the provided task results into a comprehensive, polished marketing campaign report.",
                 stream=False
             )
-            return response.text if hasattr(response, 'text') else str(response)
+            raw = response.text if hasattr(response, 'text') else str(response)
+            return self._finalize_report(raw)
         except Exception as e:
             return f"Synthesis complete. Final output:\n\n{''.join(all_results)}\n\n(Note: Synthesis failed with error: {str(e)})"
 
-    async def _save_to_memory(self, user_goal: str, final_output: str):
-        """Save result to MAB's memory."""
-        metadata = {
-            "type": "campaign",
-            "goal": user_goal
-        }
-        self.memory_manager.add(
-            document=f"Goal: {user_goal}\n\nOutput: {final_output}",
-            metadata=metadata
-        )
+    def _finalize_report(self, report_text: str) -> str:
+        """Post-process the report: replace any LLM-hallucinated dates with today's real date."""
+        today = datetime.now().strftime("%B %d, %Y")
+        # Match patterns like: "April 5, 2024", "January 1, 2023", "March 15, 2025"
+        date_pattern = r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b'
+        report_text = re.sub(date_pattern, today, report_text)
+        # Also replace short year-only patterns like "Q2 2024" → "Q2 <current year>"
+        current_year = str(datetime.now().year)
+        report_text = re.sub(r'\b20(?:2[0-3])\b', current_year, report_text)  # Replace 2020-2023
+        return report_text
 
     async def chat(self, message: str, history: List[Dict] = None, stream_callback: Callable = None) -> Dict[str, Any]:
         """Direct chat with MAB."""
@@ -300,21 +307,14 @@ When the user DOES provide a campaign goal, your responsibilities are:
             messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # Inject long-term memory: query ChromaDB for relevant past campaigns
-        # Only inject if similarity score is below 1.2 (closer = more relevant in L2 distance)
+        # Inject long-term memory: query SQLite for recent campaigns
         memory_context = ""
         try:
-            memory_results = self.memory_manager.query(message, n_results=3)
-            past_docs = memory_results.get("documents", [[]])[0]
-            past_distances = memory_results.get("distances", [[]])[0]
-            relevant_docs = [
-                doc for doc, dist in zip(past_docs, past_distances)
-                if dist < 1.2  # Only inject genuinely relevant memories
-            ]
-            if relevant_docs:
+            recent_memories = db.get_recent_memories(limit=3)
+            if recent_memories:
                 memory_context = "\n\n--- LONG-TERM MEMORY (from past campaigns) ---\n"
-                for i, doc in enumerate(relevant_docs, 1):
-                    memory_context += f"{i}. {doc}\n"
+                for i, mem in enumerate(recent_memories, 1):
+                    memory_context += f"Campaign {i}:\nGoal: {mem['goal']}\nSummary: {mem['summary']}\n\n"
                 memory_context += "--- END OF MEMORY ---\n"
         except Exception:
             pass  # If memory query fails, continue without it
@@ -338,6 +338,12 @@ When the user DOES provide a campaign goal, your responsibilities are:
 
         except Exception as e:
             full_output = f"Error: {str(e)}"
+
+        # Restoring trigger logic: Check if we should automatically start the campaign
+        # If START_CAMPAIGN is present, we return it so the frontend can trigger the /campaign/run call
+        # We also add a small note in the activity stream
+        if "[START_CAMPAIGN]" in full_output:
+            await self._stream("info", "🚀 MAB: Plan confirmed. Auto-starting campaign...", stream_callback)
 
         elapsed = time.time() - start_time
         await self._stream("done", f"✅ MAB: Response complete in {elapsed:.2f}s", stream_callback)

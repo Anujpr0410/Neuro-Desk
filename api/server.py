@@ -59,8 +59,44 @@ class AgentConfig(BaseModel):
 class GoalRequest(BaseModel):
     goal: str
     platform: str = "All"
+    session_id: Optional[str] = None
 
+@app.post("/campaign/run")
+async def run_campaign(request: GoalRequest):
+    """Run a full campaign."""
+    try:
+        mab = get_mab()
+        
+        # Save user goal to session if session_id is provided
+        if request.session_id:
+            db.save_message(request.session_id, "MAB", "user", request.goal)
+            
+        result = await mab.run(request.goal, None)
 
+        # Check if the inner run() itself failed
+        if not result.get("success", False):
+            error_msg = result.get("error", result.get("result", "Unknown error during campaign execution"))
+            if request.session_id:
+                db.save_message(request.session_id, "MAB", "assistant", f"Campaign failed: {error_msg}")
+            return {"success": False, "error": str(error_msg)}
+
+        # Extract the actual string report from the result dict
+        final_output = result.get("final_output", "")
+        if not final_output:
+            final_output = str(result)
+            
+        # Save final report to session if session_id is provided
+        if request.session_id:
+            db.save_message(request.session_id, "MAB", "assistant", final_output)
+            
+        # Store in cross-session memory
+        db.save_campaign_memory(request.goal, final_output)
+
+        return {"success": True, "result": {"final_output": final_output}}
+    except Exception as e:
+        if request.session_id:
+            db.save_message(request.session_id, "MAB", "assistant", f"Server Error: {str(e)}")
+        return {"success": False, "error": str(e)}
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, str]]] = None
@@ -229,17 +265,6 @@ async def remove_tool(tool_name: str):
             return {"success": True, "message": f"Tool '{tool_name}' removed"}
         else:
             raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/campaign/run")
-async def run_campaign(request: GoalRequest):
-    """Run a full campaign."""
-    try:
-        mab = get_mab()
-        result = await mab.run(request.goal, None)
-        return {"success": True, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

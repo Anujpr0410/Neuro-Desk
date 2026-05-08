@@ -426,19 +426,28 @@ async function sendCampaignGoal(goal) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 goal: goal,
-                platform: state.currentPlatform
+                platform: state.currentPlatform,
+                session_id: state.currentSessionId
             })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            const finalOutput = data.result.final_output || data.result;
+            // Safely extract final output — always convert to string
+            let finalOutput = data.result;
+            if (typeof finalOutput === 'object' && finalOutput !== null) {
+                finalOutput = finalOutput.final_output || JSON.stringify(finalOutput, null, 2);
+            }
+            finalOutput = String(finalOutput || 'Campaign complete — no output returned.');
+
             showOutput(finalOutput);
             addMessageToChat('mab', 'agent', finalOutput);
             addActivityMessage('mab', 'Campaign completed successfully!', 'success');
         } else {
-            addActivityMessage('mab', `Error: ${data.result || 'Unknown error'}`, 'error');
+            const errMsg = data.error || data.result || 'Unknown error';
+            addActivityMessage('mab', `❌ Campaign error: ${errMsg}`, 'error');
+            addMessageToChat('mab', 'agent', `⚠️ Campaign failed: ${errMsg}`);
         }
     } catch (error) {
         addActivityMessage('mab', `Connection error: ${error.message}`, 'error');

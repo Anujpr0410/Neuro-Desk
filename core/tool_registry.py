@@ -106,22 +106,18 @@ class ToolRegistry:
             return True
         return False
 
-    def search_github(self, tool_name: str) -> Optional[str]:
-        """Search GitHub for a tool."""
+    async def search_github(self, tool_name: str) -> Optional[str]:
+        """Search GitHub for a tool (async)."""
         search_query = f"{tool_name} language:python"
-
         try:
-            async def search():
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        "https://api.github.com/search/repositories",
-                        params={"q": search_query},
-                        timeout=10.0
-                    )
-                    response.raise_for_status()
-                    return response.json()
-
-            result = asyncio.run(search())
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.github.com/search/repositories",
+                    params={"q": search_query},
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                result = response.json()
 
             if "items" in result and len(result["items"]) > 0:
                 return result["items"][0]["html_url"]

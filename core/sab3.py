@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.llm_client import LLMClient
 from core.tool_registry import ToolRegistry
-from core.memory_manager import get_memory_manager, MemoryManager
 from config import get_config
 
 
@@ -26,7 +25,6 @@ class SAB3:
         self.config = config or get_config(config_file)
         self.llm_client = None
         self.tool_registry = ToolRegistry()
-        self.memory_manager = get_memory_manager("SAB3")
         self.provider = self.config.get("SAB3", {}).get("provider", "Ollama")
         self.api_key = self.config.get("SAB3", {}).get("api_key", "")
         self.model = self.config.get("SAB3", {}).get("model", "llama3:8b")
@@ -185,23 +183,8 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
             messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # Inject long-term memory: query ChromaDB for relevant past content tasks
+        # Memory is handled by MAB, SABs rely on prompt context
         memory_context = ""
-        try:
-            memory_results = self.memory_manager.query(message, n_results=3)
-            past_docs = memory_results.get("documents", [[]])[0]
-            past_distances = memory_results.get("distances", [[]])[0]
-            relevant_docs = [
-                doc for doc, dist in zip(past_docs, past_distances)
-                if dist < 1.2
-            ]
-            if relevant_docs:
-                memory_context = "\n\n--- LONG-TERM MEMORY (from past content tasks) ---\n"
-                for i, doc in enumerate(relevant_docs, 1):
-                    memory_context += f"{i}. {doc}\n"
-                memory_context += "--- END OF MEMORY ---\n"
-        except Exception:
-            pass
 
         system_prompt = self.pre_instructions + memory_context
 
