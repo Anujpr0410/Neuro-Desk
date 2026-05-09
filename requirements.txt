@@ -1,10 +1,11 @@
-# NeuroDesk - AI Multi-Agent System Dependencies
+# NeuroDesk AMD - AI Multi-Agent System Dependencies
 # Python 3.11+ required
 
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-websockets==12.0
+websockets>=11.0,<12.0
+gradio==4.44.1
 
 # LLM Providers
 ollama>=0.1.6
@@ -30,4 +31,7 @@ markupsafe==2.1.5
 
 # Utility
 aiofiles==23.2.1
-python-multipart==0.0.6
+python-multipart>=0.0.9
+
+# AMD Developer Cloud Integration
+# vllm>=0.5.0  # vLLM is for Linux/AMD GPU inference, not supported on macOS ARM

@@ -79,7 +79,9 @@ You are an AI assistant called SAB2, part of the NeuroDesk AI platform built by 
             self.llm_client = LLMClient(
                 provider=self.provider,
                 api_key=self.api_key,
-                model=self.model
+                model=self.model,
+                config=self.config,
+                base_url=self.config.get("SAB2", {}).get("base_url", "http://localhost:8000/v1")
             )
             self._initialized = True
 
@@ -113,11 +115,10 @@ You are an AI assistant called SAB2, part of the NeuroDesk AI platform built by 
             full_output = f"Error during strategy creation: {str(e)}"
             await self._stream("error", f"❌ SAB2: Error during strategy creation - {str(e)}", stream_callback)
 
-        # Save to memory
-        await self._save_to_memory(task, full_output)
-
+        # Step 4: Save to database memory if session exists
         elapsed = time.time() - start_time
-        await self._stream("done", f"✅ SAB2: Strategy complete in {elapsed:.2f}s", stream_callback)
+        if stream_callback:
+            await self._stream("done", f"✅ SAB2: Strategy complete in {elapsed:.2f}s", stream_callback)
 
         return {
             "success": True,
@@ -147,17 +148,6 @@ You are an AI assistant called SAB2, part of the NeuroDesk AI platform built by 
 
         return "\n".join(prompt_parts)
 
-    async def _save_to_memory(self, task: str, output: str):
-        """Save strategy results to SAB2's memory."""
-        metadata = {
-            "type": "strategy",
-            "task": task,
-            "agent": "SAB2"
-        }
-        self.memory_manager.add(
-            document=f"Task: {task}\n\nStrategy: {output}",
-            metadata=metadata
-        )
 
     def get_agent_info(self) -> Dict[str, Any]:
         """Get SAB2 agent information."""
@@ -166,8 +156,7 @@ You are an AI assistant called SAB2, part of the NeuroDesk AI platform built by 
             "name": "Strategy Specialist",
             "provider": self.provider,
             "model": self.model,
-            "tools": list(self.tools.keys()),
-            "memory_count": self.memory_manager.get_stats()["document_count"]
+            "tools": list(self.tools.keys())
         }
 
     async def chat(self, message: str, history: List[Dict] = None, stream_callback: Callable = None) -> Dict[str, Any]:

@@ -1,6 +1,11 @@
 """
-Unified LLM Client for NeuroDesk AI Multi-Agent System.
-Supports multiple providers: Ollama, OpenRouter, NVIDIA NIM, Google Gemini, OpenAI.
+Unified LLM Client for NeuroDesk AMD AI Multi-Agent System.
+Supports multiple providers: AMD Cloud (vLLM), Ollama, OpenRouter, NVIDIA NIM, Google Gemini, OpenAI.
+
+AMD Developer Cloud Integration:
+- AMD MI300X GPU-accelerated inference
+- vLLM for high-throughput LLM serving
+- OpenAI-compatible endpoint via SGLang or vLLM
 """
 
 import json
@@ -26,10 +31,12 @@ class LLMResponse:
 class LLMClient:
     """Unified LLM client supporting multiple providers."""
 
-    def __init__(self, provider: str, api_key: str = "", model: str = ""):
+    def __init__(self, provider: str, api_key: str = "", model: str = "", config: Dict = None, base_url: str = ""):
         self.provider = provider
         self.api_key = api_key
         self.model = model
+        self.config = config or {}
+        self.base_url = base_url
         self._clients = {}
 
     def _get_ollama_client(self):
@@ -71,6 +78,16 @@ class LLMClient:
         max_tokens: int = 2000
     ) -> Any:
         """Chat with the LLM using configured provider."""
+        from core.performance_logger import PerformanceLogger
+        import time
+        logger = PerformanceLogger()
+        endpoint_type = "vLLM" if "vLLM" in self.provider else self.provider
+        
+        start_time = time.time()
+        first_token_time = None
+        prompt_tokens = len(system_prompt.split()) + sum(len(m.get("content", "").split()) for m in messages)
+        completion_tokens = 0
+
         try:
             if self.provider == "Ollama":
                 gen = self._chat_ollama(messages, system_prompt, stream, temperature, max_tokens)
@@ -80,6 +97,8 @@ class LLMClient:
                 gen = self._chat_nvidia(messages, system_prompt, stream, temperature, max_tokens)
             elif self.provider == "Google Gemini":
                 gen = self._chat_gemini(messages, system_prompt, stream, temperature, max_tokens)
+            elif self.provider == "AMD Cloud (vLLM)":
+                gen = self._chat_amd_vllm(messages, system_prompt, stream, temperature, max_tokens)
             elif self.provider == "OpenAI":
                 gen = self._chat_openai(messages, system_prompt, stream, temperature, max_tokens)
             else:
@@ -87,14 +106,53 @@ class LLMClient:
                 
             if stream:
                 async def _stream_wrapper():
+                    nonlocal first_token_time, completion_tokens
                     async for chunk in gen:
+                        if first_token_time is None:
+                            first_token_time = time.time()
+                        
+                        chunk_text = chunk if isinstance(chunk, str) else (chunk.text if hasattr(chunk, 'text') else str(chunk))
+                        # Basic token estimation: 1 word ~ 1.3 tokens
+                        completion_tokens += max(1, int(len(chunk_text.split()) * 1.3))
                         yield chunk
+                        
+                    elapsed = (time.time() - start_time) * 1000
+                    first_token_ms = (first_token_time - start_time) * 1000 if first_token_time else elapsed
+                    logger.log_request(
+                        provider=self.provider,
+                        model=self.model,
+                        endpoint_type=endpoint_type,
+                        prompt_tokens=int(prompt_tokens * 1.3),
+                        completion_tokens=completion_tokens,
+                        first_token_latency_ms=first_token_ms,
+                        total_latency_ms=elapsed,
+                        tags=["chat"]
+                    )
                 return _stream_wrapper()
             else:
                 # Consume the generator to get the final LLMResponse
                 final_response = None
                 async for chunk in gen:
+                    if first_token_time is None:
+                        first_token_time = time.time()
                     final_response = chunk
+                
+                if final_response:
+                    text = final_response.text if hasattr(final_response, 'text') else str(final_response)
+                    completion_tokens = max(1, int(len(text.split()) * 1.3))
+                    
+                elapsed = (time.time() - start_time) * 1000
+                first_token_ms = (first_token_time - start_time) * 1000 if first_token_time else elapsed
+                logger.log_request(
+                    provider=self.provider,
+                    model=self.model,
+                    endpoint_type=endpoint_type,
+                    prompt_tokens=int(prompt_tokens * 1.3),
+                    completion_tokens=completion_tokens,
+                    first_token_latency_ms=first_token_ms,
+                    total_latency_ms=elapsed,
+                    tags=["chat"]
+                )
                 return final_response
         except Exception as e:
             raise Exception(f"LLM {self.provider} error: {str(e)}")
@@ -149,10 +207,13 @@ class LLMClient:
     ) -> LLMResponse:
         """Chat with OpenRouter API."""
         import openai
-
+        import httpx
+        
+        http_client = httpx.Client(trust_env=False, proxy=None)
         client = openai.OpenAI(
             api_key=self.api_key,
-            base_url="https://openrouter.ai/api/v1"
+            base_url="https://openrouter.ai/api/v1",
+            http_client=http_client
         )
 
         full_messages = []
@@ -190,10 +251,13 @@ class LLMClient:
     ) -> LLMResponse:
         """Chat with NVIDIA NIM API."""
         import openai
+        import httpx
 
+        http_client = httpx.Client(trust_env=False, proxy=None)
         client = openai.OpenAI(
             api_key=self.api_key,
-            base_url="https://integrate.api.nvidia.com/v1"
+            base_url="https://integrate.api.nvidia.com/v1",
+            http_client=http_client
         )
 
         full_messages = []
@@ -305,6 +369,50 @@ class LLMClient:
                 provider="OpenAI"
             )
 
+    async def _chat_amd_vllm(
+        self,
+        messages: List[Dict[str, str]],
+        system_prompt: str = "",
+        stream: bool = False,
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> LLMResponse:
+        """Chat with AMD Cloud vLLM endpoint (OpenAI-compatible)."""
+        import openai
+        import httpx
+
+        http_client = httpx.Client(trust_env=False, proxy=None)
+        client = openai.OpenAI(
+            api_key=self.api_key or "dummy-key",
+            base_url=self.base_url or "http://localhost:8000/v1",
+            http_client=http_client
+        )
+
+        full_messages = []
+        if system_prompt:
+            full_messages.append({"role": "system", "content": system_prompt})
+        full_messages.extend(messages)
+
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=full_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=stream
+        )
+
+        if stream:
+            for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        else:
+            yield LLMResponse(
+                text=response.choices[0].message.content,
+                raw=response,
+                model=self.model,
+                provider="AMD Cloud (vLLM)"
+            )
+
 
 async def stream_response(response_gen, callback):
     """Helper to stream response tokens to callback."""
@@ -316,7 +424,22 @@ async def stream_response(response_gen, callback):
 
 
 # Provider models mapping for UI suggestions
+# AMD Cloud is prioritized for the hackathon - AMD MI300X GPU-accelerated inference
 PROVIDER_MODELS = {
+    "AMD Cloud (vLLM)": {
+        "description": "AMD Developer Cloud - vLLM on MI300X GPUs - Open-source models",
+        "suggested_models": [
+            "Qwen/Qwen2.5-7B-Instruct",
+            "Qwen/Qwen2.5-14B-Instruct",
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "meta-llama/Llama-3.1-70B-Instruct",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "deepseek-ai/DeepSeek-V2.5",
+            "microsoft/Phi-3-mini-128k-instruct"
+        ],
+        "is_amd": True,
+        "recommended_for": "hackathon-demo"
+    },
     "Ollama": {
         "description": "Local LLM - No API key required",
         "suggested_models": [
@@ -358,7 +481,7 @@ def get_provider_models(provider: str) -> List[str]:
     return []
 
 
-async def fetch_available_models(provider: str, api_key: str = "") -> List[str]:
+async def fetch_available_models(provider: str, api_key: str = "", base_url: str = "") -> List[str]:
     """Fetch available models from the specified provider dynamically."""
     try:
         if provider == "Ollama":
@@ -388,21 +511,55 @@ async def fetch_available_models(provider: str, api_key: str = "") -> List[str]:
             elif provider == "NVIDIA NIM":
                 base_url = "https://integrate.api.nvidia.com/v1"
                 
+            import httpx
+            import os
+            # Force-disable any system proxies for this client
+            http_client = httpx.Client(
+                trust_env=False,
+                proxy=None
+            )
             client = openai.OpenAI(
                 api_key=api_key,
-                base_url=base_url
+                base_url=base_url,
+                http_client=http_client
             )
             
             # Using sync call in an async wrapper is fine here since it's just a config setup call
             models = client.models.list()
             return [m.id for m in models.data]
+        elif provider == "AMD Cloud (vLLM)":
+            import openai
+            import httpx
+            import os
+            if not base_url:
+                base_url = "http://localhost:8000/v1"  # Default vLLM endpoint
             
+            print(f"DEBUG: Fetching models from {provider} at {base_url}")
+            # Force-disable any system proxies for this client
+            http_client = httpx.Client(
+                trust_env=False,
+                proxy=None,
+                timeout=10.0
+            )
+            client = openai.OpenAI(
+                api_key=api_key or "dummy-key",
+                base_url=base_url,
+                http_client=http_client
+            )
+            try:
+                models = client.models.list()
+                print(f"DEBUG: Found {len(models.data)} models")
+                return [m.id for m in models.data]
+            except Exception as e:
+                print(f"DEBUG: Error fetching models: {str(e)}")
+                raise e
+
         elif provider == "Google Gemini":
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             models = genai.list_models()
             return [m.name.replace('models/', '') for m in models]
-            
+
         else:
             raise ValueError(f"Unknown provider: {provider}")
             

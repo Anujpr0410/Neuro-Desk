@@ -80,7 +80,9 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
             self.llm_client = LLMClient(
                 provider=self.provider,
                 api_key=self.api_key,
-                model=self.model
+                model=self.model,
+                config=self.config,
+                base_url=self.config.get("SAB3", {}).get("base_url", "http://localhost:8000/v1")
             )
             self._initialized = True
 
@@ -114,8 +116,14 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
             full_output = f"Error during content creation: {str(e)}"
             await self._stream("error", f"❌ SAB3: Error during content creation - {str(e)}", stream_callback)
 
-        # Save to memory
-        await self._save_to_memory(task, full_output)
+        # Step 4: Save to database memory if session exists
+        elapsed = time.time() - start_time
+        if stream_callback:
+            await self._stream("done", f"✅ SAB3: Content complete in {elapsed:.2f}s", stream_callback)
+        # Run drift checker if strategy context exists
+        drift_result = None
+        if context and "SAB2" in context:
+            drift_result = self._check_strategy_drift(context, full_output)
 
         elapsed = time.time() - start_time
         await self._stream("done", f"✅ SAB3: Content complete in {elapsed:.2f}s", stream_callback)
@@ -123,7 +131,51 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
         return {
             "success": True,
             "result": full_output,
-            "elapsed_seconds": elapsed
+            "elapsed_seconds": elapsed,
+            "drift_analysis": drift_result
+        }
+
+    def _check_strategy_drift(self, strategy_context: str, content_output: str) -> Dict[str, Any]:
+        """Check if content output drifts away from strategy.
+
+        This is an originality feature - the Strategy vs Copy Drift Checker
+        ensures SAB3 output stays aligned with SAB2's strategic guidelines.
+        """
+        drift_score = 0
+        drift_indicators = []
+
+        # Check for content type mismatches
+        strategy_keywords = ["calendar", "pillars", "schedule", "strategy", "plan"]
+        content_keywords = ["caption", "copy", "post", "tweet", "email"]
+
+        strategy_has_calendar = any(kw in strategy_context.lower() for kw in strategy_keywords)
+        content_has_format = any(kw in content_output.lower() for kw in content_keywords)
+
+        if strategy_has_calendar and not content_has_format:
+            drift_score += 1
+            drift_indicators.append("Strategy mentions calendar but content lacks format specification")
+
+        # Check for topic consistency (simple keyword overlap)
+        strategy_words = set(strategy_context.lower().split())
+        content_words = set(content_output.lower().split())
+        overlap = strategy_words & content_words
+        overlap_pct = len(overlap) / max(len(strategy_words), 1) * 100
+
+        if overlap_pct < 20:
+            drift_score += 2
+            drift_indicators.append(f"Low topic overlap ({overlap_pct:.0f}%) - content may drift from strategy")
+
+        # Calculate drift percentage
+        drift_pct = min(drift_score / 5 * 100, 100)
+        is_drifted = drift_pct > 30
+
+        return {
+            "drift_detected": is_drifted,
+            "drift_score": drift_score,
+            "drift_percentage": round(drift_pct, 1),
+            "indicators": drift_indicators,
+            "consistency_score": round(100 - drift_pct, 1),
+            "strategy_alignment": "Good" if not is_drifted else "Needs Review"
         }
 
     async def _stream(self, status: str, message: str, callback: Callable = None, elapsed: float = 0):
@@ -148,17 +200,6 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
 
         return "\n".join(prompt_parts)
 
-    async def _save_to_memory(self, task: str, output: str):
-        """Save content results to SAB3's memory."""
-        metadata = {
-            "type": "content",
-            "task": task,
-            "agent": "SAB3"
-        }
-        self.memory_manager.add(
-            document=f"Task: {task}\n\nContent: {output}",
-            metadata=metadata
-        )
 
     def get_agent_info(self) -> Dict[str, Any]:
         """Get SAB3 agent information."""
@@ -167,8 +208,7 @@ You are an AI assistant called SAB3, part of the NeuroDesk AI platform built by 
             "name": "Senior Copywriter",
             "provider": self.provider,
             "model": self.model,
-            "tools": list(self.tools.keys()),
-            "memory_count": self.memory_manager.get_stats()["document_count"]
+            "tools": list(self.tools.keys())
         }
 
     async def chat(self, message: str, history: List[Dict] = None, stream_callback: Callable = None) -> Dict[str, Any]:

@@ -20,7 +20,6 @@ def check_dependencies():
         "fastapi",
         "uvicorn",
         "rich",
-        "chromadb",
         "openai",
         "google.generativeai",
         "bs4"
@@ -64,7 +63,8 @@ def run_web_server(port: int = 8000):
     import uvicorn
 
     print(f"\n{'=' * 60}")
-    print("  NeuroDesk - Starting Web Server")
+    print("  NeuroDesk AMD - Starting Web Server")
+    print("  Powered by AMD Developer Cloud (MI300X)")
     print("=" * 60)
     print(f"\nOpen your browser and go to: http://localhost:{port}")
     print("Press Ctrl+C to stop the server.\n")
@@ -83,7 +83,8 @@ def run_cli():
     from cli.cli_app import main as cli_main
 
     print("\n" + "=" * 60)
-    print("  NeuroDesk - CLI Mode")
+    print("  NeuroDesk AMD - CLI Mode")
+    print("  Powered by AMD Developer Cloud (MI300X)")
     print("=" * 60)
 
     cli_main()

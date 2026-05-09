@@ -17,7 +17,11 @@ const state = {
         sab1: [],
         sab2: [],
         sab3: []
-    }
+    },
+    activeActivityMessages: {},
+    activeChatMessages: {},
+    currentAgentStatus: {},
+    scrollDebounceTimer: null
 };
 
 // DOM Elements
@@ -54,6 +58,7 @@ const dom = {
     settings: {
         providerSelects: document.querySelectorAll('.provider-select'),
         apiKeyInputs: document.querySelectorAll('.api-key-input'),
+        baseUrlInputs: document.querySelectorAll('.base-url-input'),
         modelInputs: document.querySelectorAll('.model-input'),
         preInstructionTextareas: document.querySelectorAll('.pre-instruction-textarea'),
         saveButtons: document.querySelectorAll('.save-btn')
@@ -87,54 +92,78 @@ const AGENT_NAMES = {
 };
 
 // Initialize Application
-function init() {
-    loadConfiguration();
+async function init() {
     setupEventListeners();
     startTimer();
     connectWebSocket();
     setupSettings();
-    initSession();
+    
+    // Run these concurrently
+    await Promise.all([
+        loadConfiguration(),
+        initSession()
+    ]);
 }
 
 // Load Configuration
-function loadConfiguration() {
-    fetch('/config')
-        .then(r => r.json())
-        .then(config => {
-            state.config = config;
-            updateAgentInfo();
-        })
-        .catch(() => {
-            // Use defaults if API not available
+async function loadConfiguration() {
+    try {
+        const [configRes, preInstRes] = await Promise.all([
+            fetch('/config').catch(() => null),
+            fetch('/pre-instructions').catch(() => null)
+        ]);
+        
+        if (configRes && configRes.ok) {
+            state.config = await configRes.json();
+        } else {
             state.config = {
                 MAB: { provider: 'Ollama', api_key: '', model: 'llama3:8b' },
                 SAB1: { provider: 'Ollama', api_key: '', model: 'llama3:8b' },
                 SAB2: { provider: 'Ollama', api_key: '', model: 'llama3:8b' },
                 SAB3: { provider: 'Ollama', api_key: '', model: 'llama3:8b' }
             };
-            updateAgentInfo();
-        });
-
-    fetch('/pre-instructions')
-        .then(r => r.json())
-        .then(instructions => {
-            state.preInstructions = instructions;
-        })
-        .catch(() => {
+        }
+        
+        if (preInstRes && preInstRes.ok) {
+            state.preInstructions = await preInstRes.json();
+        } else {
             state.preInstructions = {};
-        });
+        }
+        
+        updateAgentInfo();
+        
+        // Update Live Tool Toggle
+        const isLiveMode = state.config.DEMO_MODE?.enabled === false;
+        const toggle = document.getElementById('live-tool-toggle');
+        const badge = document.getElementById('demo-mode-badge');
+        if (toggle) toggle.checked = isLiveMode;
+        if (badge) {
+            badge.textContent = isLiveMode ? 'Live Mode Active' : 'Demo Mode Active';
+            badge.style.background = isLiveMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+            badge.style.color = isLiveMode ? 'var(--accent-mab)' : 'var(--warning)';
+        }
+    } catch (e) {
+        console.error("Failed to load configuration", e);
+    }
 }
 
 // Update Agent Info Display
 function updateAgentInfo() {
-    document.getElementById('sab1-provider').textContent = state.config.SAB1?.provider || 'Ollama';
-    document.getElementById('sab1-model').textContent = state.config.SAB1?.model || 'llama3:8b';
+    const updateProviderDisplay = (agentKey, elementId, badgeId) => {
+        const provider = state.config[agentKey]?.provider || 'Ollama';
+        document.getElementById(elementId).textContent = provider;
 
-    document.getElementById('sab2-provider').textContent = state.config.SAB2?.provider || 'Ollama';
-    document.getElementById('sab2-model').textContent = state.config.SAB2?.model || 'llama3:8b';
+        // Show AMD badge if using AMD Cloud
+        const isAMD = provider.includes('AMD Cloud');
+        const badge = document.getElementById(badgeId);
+        if (badge) {
+            badge.style.display = isAMD ? 'block' : 'none';
+        }
+    };
 
-    document.getElementById('sab3-provider').textContent = state.config.SAB3?.provider || 'Ollama';
-    document.getElementById('sab3-model').textContent = state.config.SAB3?.model || 'llama3:8b';
+    updateProviderDisplay('SAB1', 'sab1-provider', 'provider-badge-sab1');
+    updateProviderDisplay('SAB2', 'sab2-provider', 'provider-badge-sab2');
+    updateProviderDisplay('SAB3', 'sab3-provider', 'provider-badge-sab3');
 }
 
 // Setup Event Listeners
@@ -234,6 +263,42 @@ function setupEventListeners() {
             dom.modal.output.style.display = 'none';
         }
     });
+
+    // Benchmark actions
+    const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
+    if (runBenchmarkBtn) runBenchmarkBtn.addEventListener('click', runBenchmark);
+
+    const exportBenchmarksBtn = document.getElementById('export-benchmarks-btn');
+    if (exportBenchmarksBtn) exportBenchmarksBtn.addEventListener('click', exportBenchmarks);
+
+    // Live Tool Mode Toggle
+    const liveToggle = document.getElementById('live-tool-toggle');
+    if (liveToggle) {
+        liveToggle.addEventListener('change', () => {
+            const isLive = liveToggle.checked;
+            const badge = document.getElementById('demo-mode-badge');
+            if (badge) {
+                badge.textContent = isLive ? 'Live Mode Active' : 'Demo Mode Active';
+                badge.style.background = isLive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+                badge.style.color = isLive ? 'var(--accent-mab)' : 'var(--warning)';
+            }
+            
+            // Update config
+            state.config.DEMO_MODE = { enabled: !isLive };
+            
+            // Save config
+            fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(state.config)
+            }).then(r => r.json())
+              .then(data => {
+                  if (data.success) {
+                      addActivityMessage('mab', `System: ${isLive ? 'Live Tool Mode' : 'Demo Mode'} enabled.`, 'info');
+                  }
+              });
+        });
+    }
 }
 
 // Setup Settings Form
@@ -241,16 +306,28 @@ function setupSettings() {
     // Pre-populate settings from config
     const populateAgentSettings = (agentKey, index) => {
         if (state.config[agentKey]) {
-            dom.settings.providerSelects[index].value = state.config[agentKey].provider || 'Ollama';
+            const providerSelect = dom.settings.providerSelects[index];
+            providerSelect.value = state.config[agentKey].provider || 'Ollama';
+
+            // Show AMD badge if AMD Cloud is selected
+            updateProviderBadge(providerSelect, index);
+
+            // Set API key and Base URL
             dom.settings.apiKeyInputs[index].value = state.config[agentKey].api_key || '';
             
+            const baseUrlInput = document.querySelector(`.base-url-input[data-agent="${agentKey}"]`);
+            if (baseUrlInput) baseUrlInput.value = state.config[agentKey].base_url || 'http://localhost:8000/v1';
+
             // Set model value (it might be a select or input, but setting .value works for both)
             const modelInput = document.querySelector(`.model-input[data-agent="${agentKey}"]`);
             if (modelInput) modelInput.value = state.config[agentKey].model || 'llama3:8b';
-            
-            // Trigger change event to show/hide API key input based on provider if we had that logic
         }
     };
+
+    // Add change event handlers to provider selects to update badges
+    dom.settings.providerSelects.forEach((select, index) => {
+        select.addEventListener('change', () => updateProviderBadge(select, index));
+    });
 
     populateAgentSettings('MAB', 0);
     populateAgentSettings('SAB1', 1);
@@ -288,6 +365,19 @@ function setupSettings() {
     });
 }
 
+// Update Provider Badge for AMD Cloud
+function updateProviderBadge(selectElement, index) {
+    const provider = selectElement.value;
+    const isAMD = provider.includes('AMD Cloud');
+    const agent = selectElement.dataset.agent;
+    const badgeId = `provider-badge-${agent.toLowerCase()}`;
+    const badge = document.getElementById(badgeId);
+
+    if (badge) {
+        badge.style.display = isAMD ? 'block' : 'none';
+    }
+}
+
 // Switch Tab
 function switchTab(tab) {
     // Remove active class from all tabs
@@ -308,12 +398,23 @@ function switchTab(tab) {
         sab1: 'Research Chat - SAB1',
         sab2: 'Strategy Chat - SAB2',
         sab3: 'Content Chat - SAB3',
-        settings: 'Settings',
-        history: 'Session History'
+        performance: 'Performance Dashboard',
+        history: 'Session History',
+        about: 'About NeuroDesk AMD'
     };
-    dom.pageTitle.textContent = titles[tab] || 'NeuroDesk';
+    dom.pageTitle.textContent = titles[tab] || 'NeuroDesk AMD';
 
     state.currentTab = tab;
+
+    // Load performance data if performance tab is selected
+    if (tab === 'performance') {
+        loadPerformanceData();
+    }
+
+    // Load AMD info if about tab is selected
+    if (tab === 'about') {
+        loadAMDInfo();
+    }
 }
 
 // Toggle Theme
@@ -402,55 +503,55 @@ function addMessageToChat(agent, sender, message) {
 // Add Activity Message
 function addActivityMessage(agent, message, type = 'info') {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const messageElement = document.createElement('div');
-    messageElement.className = `activity-message ${agent} ${type}`;
-
-    let messageHtml = '';
-    if (agent === 'mab') {
-        messageHtml = `<div class="timestamp">${timestamp}</div><div class="message">🧠 MAB: ${escapeHtml(message)}</div>`;
+    const isStreaming = type === 'info' || type === 'working';
+    
+    // Check if we should append to an existing bubble
+    if (isStreaming && state.activeActivityMessages[agent]) {
+        const contentSpan = state.activeActivityMessages[agent];
+        contentSpan.textContent += message;
     } else {
-        messageHtml = `<div class="timestamp">${timestamp}</div><div class="message">${AGENT_EMOJIS[agent]} ${AGENT_NAMES[agent]}: ${escapeHtml(message)}</div>`;
+        const messageElement = document.createElement('div');
+        messageElement.className = `activity-message ${agent} ${type}`;
+
+        const emoji = AGENT_EMOJIS[agent] || '🤖';
+        const name = AGENT_NAMES[agent] || agent.toUpperCase();
+        const prefix = agent === 'mab' ? '🧠 MAB:' : `${emoji} ${name}:`;
+        
+        messageElement.innerHTML = `
+            <div class="timestamp">${timestamp}</div>
+            <div class="message">
+                <strong>${prefix}</strong> <span class="content">${escapeHtml(message)}</span>
+            </div>
+        `;
+
+        dom.activityMessages.appendChild(messageElement);
+        
+        if (isStreaming) {
+            state.activeActivityMessages[agent] = messageElement.querySelector('.content');
+        } else {
+            // If it's a 'done', 'success', or 'error' message, clear the active tracking
+            delete state.activeActivityMessages[agent];
+        }
     }
 
-    messageElement.innerHTML = messageHtml;
-    dom.activityMessages.appendChild(messageElement);
-    dom.activityMessages.scrollTop = dom.activityMessages.scrollHeight;
+    // Debounced scrolling to reduce layout reflows
+    if (state.scrollDebounceTimer) clearTimeout(state.scrollDebounceTimer);
+    state.scrollDebounceTimer = setTimeout(() => {
+        dom.activityMessages.scrollTop = dom.activityMessages.scrollHeight;
+    }, 50);
 }
 
 // Send Campaign Goal
-async function sendCampaignGoal(goal) {
-    try {
-        const response = await fetch('/campaign/run', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                goal: goal,
-                platform: state.currentPlatform,
-                session_id: state.currentSessionId
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            // Safely extract final output — always convert to string
-            let finalOutput = data.result;
-            if (typeof finalOutput === 'object' && finalOutput !== null) {
-                finalOutput = finalOutput.final_output || JSON.stringify(finalOutput, null, 2);
-            }
-            finalOutput = String(finalOutput || 'Campaign complete — no output returned.');
-
-            showOutput(finalOutput);
-            addMessageToChat('mab', 'agent', finalOutput);
-            addActivityMessage('mab', 'Campaign completed successfully!', 'success');
-        } else {
-            const errMsg = data.error || data.result || 'Unknown error';
-            addActivityMessage('mab', `❌ Campaign error: ${errMsg}`, 'error');
-            addMessageToChat('mab', 'agent', `⚠️ Campaign failed: ${errMsg}`);
-        }
-    } catch (error) {
-        addActivityMessage('mab', `Connection error: ${error.message}`, 'error');
+function sendCampaignGoal(goal) {
+    if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
+        state.websocket.send(JSON.stringify({
+            type: 'start_campaign',
+            goal: goal,
+            platform: state.currentPlatform,
+            session_id: state.currentSessionId
+        }));
+    } else {
+        addActivityMessage('mab', 'Error: WebSocket not connected. Cannot start campaign.', 'error');
     }
 }
 
@@ -462,16 +563,19 @@ async function fetchModels(agent) {
     const container = document.querySelector(`.model-input-container[data-agent="${agent}"]`);
     const originalBtnText = btn.textContent;
     
-    if (provider !== 'Ollama' && !apiKey) {
+    if (provider !== 'Ollama' && !provider.includes('AMD Cloud') && !apiKey) {
         alert('Please enter an API key to fetch models for ' + provider);
         return;
     }
+
+    const baseUrlInput = document.querySelector(`.base-url-input[data-agent="${agent}"]`);
+    const baseUrl = baseUrlInput ? baseUrlInput.value : '';
 
     try {
         btn.textContent = 'Fetching...';
         btn.disabled = true;
         
-        const response = await fetch(`/models?provider=${encodeURIComponent(provider)}&api_key=${encodeURIComponent(apiKey)}`);
+        const response = await fetch(`/models?provider=${encodeURIComponent(provider)}&api_key=${encodeURIComponent(apiKey)}&base_url=${encodeURIComponent(baseUrl)}`);
         const data = await response.json();
         
         if (data.success && data.models && data.models.length > 0) {
@@ -510,54 +614,61 @@ async function fetchModels(agent) {
 }
 
 // Send Chat Message
-async function sendChatMessage(agent, message) {
-    const endpoint = agent === 'mab' ? '/mab/chat' : `/sab${agent.slice(3)}/chat`;
-    
-    // Add to local history
+function sendChatMessage(agent, message) {
     if (!state.messageHistory[agent]) state.messageHistory[agent] = [];
     
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message,
-                history: state.messageHistory[agent],
-                session_id: state.currentSessionId
-            })
-        });
+    // Add User Message to UI
+    addMessageToChat(agent, 'user', message);
+    state.messageHistory[agent].push({ role: 'user', content: message });
 
-        const data = await response.json();
+    // Add "Thinking" bubble to chat assistant side
+    const thinkingBubbleId = addThinkingBubble(agent);
+    state.activeChatMessages[agent] = {
+        elementId: thinkingBubbleId,
+        fullText: ''
+    };
 
-        if (data.success) {
-            let resultText = data.result;
-            
-            // Check for auto-start trigger for MAB
-            if (agent === 'mab' && resultText.includes('[START_CAMPAIGN]')) {
-                // Remove the trigger from the displayed text
-                resultText = resultText.replace('[START_CAMPAIGN]', '').trim();
-                if (resultText) {
-                    addMessageToChat(agent, 'agent', resultText);
-                }
-                
-                // Automatically start the campaign
-                addActivityMessage('mab', 'Auto-starting campaign...', 'info');
-                sendCampaignGoal(message);
-            } else {
-                addMessageToChat(agent, 'agent', resultText);
-            }
-            
-            state.messageHistory[agent].push(
-                { role: 'user', content: message },
-                { role: 'assistant', content: data.result } // store original with trigger so LLM remembers
-            );
-        } else {
-            const errMsg = data.error || data.result || 'Unknown error';
-            addMessageToChat(agent, 'agent', `Error: ${errMsg}`);
-        }
-    } catch (error) {
-        addMessageToChat(agent, 'agent', `Connection error: ${error.message}`);
+    if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
+        state.websocket.send(JSON.stringify({
+            type: 'chat',
+            agent: agent,
+            message: message,
+            session_id: state.currentSessionId,
+            history: state.messageHistory[agent]
+        }));
+    } else {
+        addMessageToChat(agent, 'agent', 'Error: WebSocket not connected. Cannot send message.');
     }
+}
+
+// Add Thinking Bubble
+function addThinkingBubble(agent) {
+    const messagesDiv = dom.chatMessages[agent];
+    const bubbleId = `thinking-${agent}-${Date.now()}`;
+    const emoji = AGENT_EMOJIS[agent] || '🤖';
+    const name = AGENT_NAMES[agent] || agent.toUpperCase();
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const messageElement = document.createElement('div');
+    messageElement.className = `chat-message agent ${agent} thinking-bubble`;
+    messageElement.id = bubbleId;
+
+    messageElement.innerHTML = `
+        <div class="chat-avatar">${emoji}</div>
+        <div class="chat-content">
+            <div class="message-text">
+                <span class="thinking-dots">Thinking</span>
+            </div>
+            <div class="chat-meta">
+                <span class="agent-badge">${name}</span>
+                <span class="timestamp">${timestamp}</span>
+            </div>
+        </div>
+    `;
+
+    messagesDiv.appendChild(messageElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return bubbleId;
 }
 
 // Show Output Modal
@@ -702,15 +813,83 @@ function connectWebSocket() {
 
 // Handle WebSocket Message
 function handleWebSocketMessage(data) {
+    // Shared Working/Streaming logic
+    if (data.type.endsWith('_working')) {
+        const agent = data.chat_agent || data.agent?.toLowerCase();
+        
+        // Handle Chat Streaming
+        if (data.chat_agent && state.activeChatMessages[agent]) {
+            const chatState = state.activeChatMessages[agent];
+            const bubble = document.getElementById(chatState.elementId);
+            if (bubble) {
+                // If it's the first token, remove the thinking indicator
+                if (chatState.fullText === '') {
+                    bubble.classList.remove('thinking-bubble');
+                    bubble.querySelector('.message-text').innerHTML = '';
+                    bubble.querySelector('.message-text').style.fontStyle = 'normal';
+                    bubble.querySelector('.message-text').style.color = 'inherit';
+                }
+                
+                chatState.fullText += data.message;
+                
+                // Update bubble content with markdown
+                try {
+                    const textNode = bubble.querySelector('.message-text');
+                    if (typeof marked !== 'undefined') {
+                        textNode.innerHTML = (typeof marked.parse === 'function') ? marked.parse(chatState.fullText) : marked(chatState.fullText);
+                    } else {
+                        textNode.textContent = chatState.fullText;
+                    }
+                } catch (e) {
+                    bubble.querySelector('.message-text').textContent = chatState.fullText;
+                }
+                
+                // Debounced scrolling
+                if (state.scrollDebounceTimer) clearTimeout(state.scrollDebounceTimer);
+                state.scrollDebounceTimer = setTimeout(() => {
+                    dom.chatMessages[agent].scrollTop = dom.chatMessages[agent].scrollHeight;
+                }, 50);
+            }
+        }
+        
+        // Handle Sidebar Activity Streaming
+        addActivityMessage(agent, data.message, 'working');
+        return;
+    }
+
     switch (data.type) {
-        case 'mab_thinking':
-            addActivityMessage('mab', data.message);
+        case 'chat_done':
+            const chatAgent = data.agent;
+            if (state.activeChatMessages[chatAgent]) {
+                const finalResult = data.result;
+                
+                // Check for [START_CAMPAIGN] trigger (only for MAB)
+                if (chatAgent === 'mab' && finalResult.includes('[START_CAMPAIGN]')) {
+                    const cleanResult = finalResult.replace('[START_CAMPAIGN]', '').trim();
+                    const bubble = document.getElementById(state.activeChatMessages[chatAgent].elementId);
+                    if (bubble) {
+                        if (typeof marked !== 'undefined') {
+                            bubble.querySelector('.message-text').innerHTML = (typeof marked.parse === 'function') ? marked.parse(cleanResult) : marked(cleanResult);
+                        } else {
+                            bubble.querySelector('.message-text').textContent = cleanResult;
+                        }
+                    }
+                    
+                    addActivityMessage('mab', 'Auto-starting campaign engine...', 'info');
+                    sendCampaignGoal(cleanResult || 'Run campaign');
+                }
+
+                // Add to history
+                state.messageHistory[chatAgent].push(
+                    { role: 'assistant', content: finalResult }
+                );
+                
+                delete state.activeChatMessages[chatAgent];
+            }
             break;
-        case 'tool_check':
-            addActivityMessage('mab', data.message);
-            break;
+
         case 'task_assign':
-            addActivityMessage('mab', `${data.agent}: ${data.task}`);
+            addActivityMessage('mab', data.message || `Assigning task to ${data.agent}...`);
             break;
         case 'sab_working':
         case 'sab1_working':
@@ -734,6 +913,7 @@ function handleWebSocketMessage(data) {
             break;
         case 'final_output':
             showOutput(data.result);
+            addMessageToChat('mab', 'agent', data.result);
             break;
         case 'error':
             addActivityMessage('mab', data.message, 'error');
@@ -748,12 +928,13 @@ function handleWebSocketMessage(data) {
 function saveAgentConfig(agent) {
     const provider = document.querySelector(`.provider-select[data-agent="${agent}"]`).value;
     const apiKey = document.querySelector(`.api-key-input[data-agent="${agent}"]`).value;
+    const baseUrl = document.querySelector(`.base-url-input[data-agent="${agent}"]`).value;
     const model = document.querySelector(`.model-input[data-agent="${agent}"]`).value;
     const preInstruction = document.querySelector(`.pre-instruction-textarea[data-agent="${agent}"]`).value;
 
     // Get current config and update it
     const config = { ...state.config };
-    config[agent] = { provider, api_key: apiKey, model };
+    config[agent] = { provider, api_key: apiKey, model, base_url: baseUrl };
 
     fetch('/config', {
         method: 'POST',
@@ -934,6 +1115,153 @@ function clearAllChats() {
              container.appendChild(greeting);
         }
     });
+}
+
+// Load Performance Data for Performance Tab
+async function loadPerformanceData() {
+    try {
+        const summary = await fetch('/config')
+            .then(r => r.json())
+            .then(config => {
+                // Get AMD vs non-AMD providers
+                const providers = Object.values(config).filter(v => typeof v === 'object' && v.provider);
+                const amdCount = providers.filter(p => p.provider && p.provider.includes('AMD')).length;
+                const total = providers.length;
+                return { amdCount, total };
+            });
+
+        // Load live performance summary
+        const perfRes = await fetch('/performance/summary');
+        const perfData = await perfRes.json();
+        const stats = perfData.summary || {};
+
+        // Load benchmark data for the table
+        const benchmarkRes = await fetch('/benchmark/comparison');
+        const benchmarkData = await benchmarkRes.json();
+
+        // Update KPIs using live tracking data
+        document.getElementById('kpi-total-requests').textContent = stats.total_requests || 0;
+        document.getElementById('kpi-avg-latency').textContent = `${stats.avg_total_latency_ms || 0} ms`;
+        document.getElementById('kpi-avg-tps').textContent = stats.avg_tokens_per_second || 0;
+        document.getElementById('kpi-amd-count').textContent = stats.amd_metric_count || 0;
+        document.getElementById('last-update-time').textContent = new Date().toLocaleTimeString();
+        document.getElementById('demo-mode-status').textContent = state.config.DEMO_MODE?.enabled ? 'Enabled' : 'Disabled';
+
+        // Render benchmark table
+        const benchmarkBody = document.getElementById('benchmark-body');
+        if (benchmarkData.comparisons && benchmarkData.comparisons.length > 0) {
+            benchmarkBody.innerHTML = benchmarkData.comparisons.map(c => {
+                const isAMD = c.is_amd ? 'AMD' : 'Other';
+                return `<tr>
+                    <td>${c.provider}</td>
+                    <td>${c.model}</td>
+                    <td>${c.elapsed_ms}</td>
+                    <td>${c.tokens_per_second}</td>
+                    <td style="color: ${c.is_amd ? '#10b981' : '#6b7280'}">${isAMD}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            benchmarkBody.innerHTML = '<tr><td colspan="5">No benchmark data yet. Click "Run Benchmark" to start.</td></tr>';
+        }
+    } catch (e) {
+        console.error("Failed to load performance data", e);
+    }
+}
+
+// Load AMD Info for About Tab
+function loadAMDInfo() {
+    const config = state.config;
+    const amdProviders = Object.entries(config).filter(([k, v]) =>
+        typeof v === 'object' && v.provider && v.provider.includes('AMD')
+    );
+
+    const amdInfoContainer = document.querySelector('.amd-hero');
+    if (amdInfoContainer) {
+        amdInfoContainer.innerHTML = `
+            <h3>🚀 Powered by AMD Developer Cloud</h3>
+            <p>NeuroDesk leverages AMD MI300X GPUs for high-performance LLM inference via vLLM.</p>
+            <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-secondary);">
+                <strong>Active AMD Agents:</strong> ${amdProviders.length} of ${Object.keys(config).filter(k => k.startsWith('SAB') || k === 'MAB').length} agents
+            </p>
+        `;
+    }
+
+    // Update agent info cards
+    document.getElementById('sab1-provider').textContent = config.SAB1?.provider || 'Ollama';
+    document.getElementById('sab1-model').textContent = config.SAB1?.model || 'llama3:8b';
+
+    document.getElementById('sab2-provider').textContent = config.SAB2?.provider || 'Ollama';
+    document.getElementById('sab2-model').textContent = config.SAB2?.model || 'llama3:8b';
+
+    document.getElementById('sab3-provider').textContent = config.SAB3?.provider || 'Ollama';
+    document.getElementById('sab3-model').textContent = config.SAB3?.model || 'llama3:8b';
+}
+
+// Run Benchmark Function
+async function runBenchmark() {
+    const btn = document.getElementById('run-benchmark-btn');
+    if (!btn) return;
+
+    btn.textContent = 'Running...';
+    btn.disabled = true;
+
+    try {
+        const config = state.config;
+        const results = {};
+
+        // Run benchmark for each agent's provider
+        for (const [agentKey, agentConfig] of Object.entries(config)) {
+            if (typeof agentConfig === 'object' && agentConfig.provider) {
+                const provider = agentConfig.provider;
+                const model = agentConfig.model;
+
+                if (provider.includes('AMD') || provider === 'Ollama') {
+                    const response = await fetch(`/benchmark/run?provider=${encodeURIComponent(provider)}&model=${encodeURIComponent(model)}&api_key=${encodeURIComponent(agentConfig.api_key || '')}&base_url=${encodeURIComponent(agentConfig.base_url || '')}`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        results[provider] = data.results;
+                    }
+                }
+            }
+        }
+
+        // Reload performance data
+        await loadPerformanceData();
+        alert('Benchmark complete! Results loaded.');
+    } catch (e) {
+        console.error("Benchmark error:", e);
+        alert('Benchmark failed: ' + e.message);
+    } finally {
+        btn.textContent = 'Run Benchmark';
+        btn.disabled = false;
+    }
+}
+
+// Export Benchmarks
+async function exportBenchmarks() {
+    try {
+        const response = await fetch('/benchmark/export', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            const blob = new Blob([data.content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'NeuroDesk_AMD_Benchmarks.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Benchmark report exported!');
+        } else {
+            alert('Failed to export benchmarks: ' + data.error);
+        }
+    } catch (e) {
+        console.error("Export error:", e);
+        alert('Export failed: ' + e.message);
+    }
 }
 
 if (dom.history.newBtn) {

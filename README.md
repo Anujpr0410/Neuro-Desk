@@ -1,10 +1,12 @@
-# NeuroDesk - AI Multi-Agent System
+# NeuroDesk AMD - AI Multi-Agent System (Hackathon Edition)
 
-A hierarchical AI agent orchestration platform for digital marketing automation.
+[![AMD Developer Cloud](https://img.shields.io/badge/AMD-Developer%20Cloud-ED1C24.svg)](https://developer.amd.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-![NeuroDesk](https://img.shields.io/badge/version-1.0.0-blue.svg)
+A hierarchical AI agent orchestration platform for digital marketing automation, **powered by AMD Developer Cloud and MI300X GPUs**.
+
+![NeuroDesk](https://img.shields.io/badge/version-2.0.0-amd-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
 
@@ -23,11 +25,52 @@ NeuroDesk features **One Main Agent Brain (MAB)** that manages **Three Sub Agent
 
 ---
 
+## 🚀 Hackathon Features
+
+| Feature | Description |
+|---------|-------------|
+| **AMD Cloud (vLLM)** | First-class support for AMD MI300X GPUs |
+| **Performance Dashboard** | Real-time metrics showing AMD acceleration |
+| **Demo Mode** | Mock data for reliable demos |
+| **Strategy Drift Checker** | Original feature detecting content drift |
+| **Business Value Layer** | ROI analysis in final reports |
+| **Hugging Face Ready** | Lightweight Gradio demo for public deployment |
+
+**This is the AMD Developer Hackathon 2024 optimized version.**
+
+---
+
 ## Features
 
 - **Multi-Agent Architecture**: Hierarchical task delegation with specialized agents
-- **Multi-Provider Support**: Ollama (local), OpenRouter, NVIDIA NIM, Google Gemini, OpenAI
+- **Multi-Provider Support**: AMD Cloud (vLLM), Ollama, OpenRouter, NVIDIA NIM, Google Gemini, OpenAI
 - **Real-Time Streaming**: WebSocket-based activity feed with progress indicators
+
+---
+
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [README_AMD.md](./README_AMD.md) | Full AMD Developer Cloud documentation |
+| [HACKATHON_SUBMISSION.md](./HACKATHON_SUBMISSION.md) | Hackathon submission details |
+| [BENCHMARKS.md](./BENCHMARKS.md) | Performance benchmark results |
+| [DEPLOY_AMD_CLOUD.md](./DEPLOY_AMD_CLOUD.md) | Deploy on AMD Developer Cloud |
+| [DEPLOY_HF_SPACE.md](./DEPLOY_HF_SPACE.md) | Deploy as Hugging Face Space |
+| [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) | 3-minute demo for judges |
+| [QUICKSTART.md](./QUICKSTART.md) | Quick start guide |
+| [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) | Complete project summary |
+
+---
+
+## 🎯 Quick Start
+
+```bash
+pip install -r requirements.txt
+python main.py --mode web
+```
+
+For full documentation, see [README_AMD.md](./README_AMD.md).
 - **Tool Registry**: Automatic tool discovery and installation from GitHub
 - **ChromaDB Memory**: Persistent vector memory for each agent
 - **Web UI**: Modern dark/light themed interface inspired by Linear/Vercel

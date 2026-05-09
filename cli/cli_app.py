@@ -355,14 +355,16 @@ A comprehensive marketing campaign has been planned.
             with console.status(f"[bold]{agent_id} is typing..."):
                 result = asyncio.run(agent.chat(message, conversation_history))
 
+            output_text = result.get("output", result.get("result", ""))
+            
             # Display response
             console.print(Panel(
-                result["result"]["output"],
+                output_text,
                 title=f"[bold green]{agent_id}[/bold green]",
                 border_style=self._get_agent_color(agent_id)
             ))
 
-            conversation_history.append({"role": "assistant", "content": result["result"]["output"]})
+            conversation_history.append({"role": "assistant", "content": output_text})
 
     def view_tool_registry(self):
         """View and manage tools."""

@@ -22,27 +22,46 @@ def get_config(config_file: str = "config/config.json") -> Dict[str, Any]:
 
 
 def _get_default_config() -> Dict[str, Any]:
-    """Return default configuration."""
+    """Return default configuration.
+
+    AMD Cloud (vLLM) is the default provider for the hackathon version.
+    Open-source models are recommended and optimized for AMD MI300X GPUs.
+    """
     return {
         "MAB": {
-            "provider": "Ollama",
+            "provider": "AMD Cloud (vLLM)",
             "api_key": "",
-            "model": "llama3:8b"
+            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "base_url": "http://localhost:8000/v1"
         },
         "SAB1": {
-            "provider": "Ollama",
+            "provider": "AMD Cloud (vLLM)",
             "api_key": "",
-            "model": "llama3:8b"
+            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "base_url": "http://localhost:8000/v1"
         },
         "SAB2": {
-            "provider": "Ollama",
+            "provider": "AMD Cloud (vLLM)",
             "api_key": "",
-            "model": "llama3:8b"
+            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "base_url": "http://localhost:8000/v1"
         },
         "SAB3": {
-            "provider": "Ollama",
+            "provider": "AMD Cloud (vLLM)",
             "api_key": "",
-            "model": "llama3:8b"
+            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "base_url": "http://localhost:8000/v1"
+        },
+        # Demo Mode settings
+        "DEMO_MODE": {
+            "enabled": True,
+            "description": "When enabled, uses mock sample data instead of real tool calls. Great for demos."
+        },
+        # AMD Performance Dashboard settings
+        "AMD_DASHBOARD": {
+            "enabled": True,
+            "show_amd_metrics": True,
+            "show_benchmark_history": True
         }
     }
 

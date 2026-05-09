@@ -1,0 +1,26 @@
+# NeuroDesk AMD - Hugging Face Space Requirements
+# Gradio-based demo for AMD Developer Cloud
+
+# Web Framework
+gradio>=4.0.0
+fastapi>=0.109.0
+uvicorn>=0.27.0
+
+# LLM Providers
+openai>=1.0.0
+httpx>=0.27.0
+
+# CLI UI
+rich>=13.0.0
+
+# Web Scraping & Tools
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+
+# HTML/PDF Export
+weasyprint>=60.0
+markupsafe>=2.1.5
+
+# Utility
+aiofiles>=23.2.1
+python-multipart>=0.0.6

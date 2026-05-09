@@ -21,7 +21,7 @@
             <div class="nav-group">
                 <div class="nav-item mab active" data-tab="mab">
                     <span class="nav-icon">🧠</span>
-                    <span class="nav-label">MAB</span>
+                    <span class="nav-label">Campaign</span>
                 </div>
                 <div class="nav-item sab1" data-tab="sab1">
                     <span class="nav-icon">🔍</span>
@@ -35,6 +35,10 @@
                     <span class="nav-icon">✍️</span>
                     <span class="nav-label">SAB3</span>
                 </div>
+                <div class="nav-item performance" data-tab="performance">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-label">Performance</span>
+                </div>
                 <div class="nav-item history" data-tab="history">
                     <span class="nav-icon">🕒</span>
                     <span class="nav-label">Session History</span>
@@ -42,6 +46,10 @@
                 <div class="nav-item settings" data-tab="settings" style="margin-top: auto;">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Settings</span>
+                </div>
+                <div class="nav-item about" data-tab="about" style="margin-top: auto;">
+                    <span class="nav-icon">ℹ️</span>
+                    <span class="nav-label">AMD Info</span>
                 </div>
             </div>
         </nav>
@@ -256,6 +264,27 @@
                         <p>Configure agents, pre-instructions, and API keys</p>
                     </div>
                     <div class="settings-grid">
+                        <!-- System Settings -->
+                        <div class="agent-config-card" style="grid-column: 1 / -1; border-color: var(--accent-mab);">
+                            <div class="card-header">
+                                <div>
+                                    <div class="agent-name">System Configuration</div>
+                                    <div class="agent-role">Global Engine Settings</div>
+                                </div>
+                                <div id="demo-mode-badge" class="agent-status working" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">Demo Mode Active</div>
+                            </div>
+                            <div class="form-group" style="flex-direction: row; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                <div>
+                                    <label style="font-size: 1rem; color: var(--text-primary); text-transform: none;">Live Tool Mode</label>
+                                    <p style="font-size: 0.8rem; color: var(--text-muted);">When enabled, agents will use real LLM inference and live tools instead of mock demo data.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="live-tool-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- MAB Settings -->
                         <div class="agent-config-card">
                             <div class="card-header">
@@ -268,16 +297,26 @@
                             <div class="form-group">
                                 <label>Provider</label>
                                 <select class="provider-select" data-agent="MAB">
+                                    <option value="AMD Cloud (vLLM)" data-amd="true" data-recommended="true">
+                                        AMD Cloud (vLLM) - Hackathon Recommended
+                                    </option>
                                     <option value="Ollama">Ollama (Local)</option>
                                     <option value="OpenRouter">OpenRouter</option>
                                     <option value="NVIDIA NIM">NVIDIA NIM</option>
                                     <option value="Google Gemini">Google Gemini</option>
                                     <option value="OpenAI">OpenAI</option>
                                 </select>
+                                <div class="provider-badge" id="provider-badge-mab" style="display: none; padding: 4px 8px; background: linear-gradient(135deg, #10b981, #3b82f6); color: white; border-radius: 4px; font-size: 0.75rem; margin-top: 4px;">
+                                    <span>🚀 Powered by AMD MI300X</span>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
                                 <input type="password" class="api-key-input" data-agent="MAB" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label>Base URL (for vLLM)</label>
+                                <input type="text" class="base-url-input" data-agent="MAB" value="http://localhost:8000/v1" placeholder="http://165.245.135.34:8000/v1"/>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; justify-content: space-between; align-items: center;">
@@ -307,16 +346,26 @@
                             <div class="form-group">
                                 <label>Provider</label>
                                 <select class="provider-select" data-agent="SAB1">
+                                    <option value="AMD Cloud (vLLM)" data-amd="true" data-recommended="true">
+                                        AMD Cloud (vLLM) - Hackathon Recommended
+                                    </option>
                                     <option value="Ollama">Ollama (Local)</option>
                                     <option value="OpenRouter">OpenRouter</option>
                                     <option value="NVIDIA NIM">NVIDIA NIM</option>
                                     <option value="Google Gemini">Google Gemini</option>
                                     <option value="OpenAI">OpenAI</option>
                                 </select>
+                                <div class="provider-badge" id="provider-badge-sab1" style="display: none; padding: 4px 8px; background: linear-gradient(135deg, #10b981, #3b82f6); color: white; border-radius: 4px; font-size: 0.75rem; margin-top: 4px;">
+                                    <span>🚀 Powered by AMD MI300X</span>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
                                 <input type="password" class="api-key-input" data-agent="SAB1" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label>Base URL (for vLLM)</label>
+                                <input type="text" class="base-url-input" data-agent="SAB1" value="http://localhost:8000/v1" placeholder="http://165.245.135.34:8000/v1"/>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; justify-content: space-between; align-items: center;">
@@ -346,16 +395,26 @@
                             <div class="form-group">
                                 <label>Provider</label>
                                 <select class="provider-select" data-agent="SAB2">
+                                    <option value="AMD Cloud (vLLM)" data-amd="true" data-recommended="true">
+                                        AMD Cloud (vLLM) - Hackathon Recommended
+                                    </option>
                                     <option value="Ollama">Ollama (Local)</option>
                                     <option value="OpenRouter">OpenRouter</option>
                                     <option value="NVIDIA NIM">NVIDIA NIM</option>
                                     <option value="Google Gemini">Google Gemini</option>
                                     <option value="OpenAI">OpenAI</option>
                                 </select>
+                                <div class="provider-badge" id="provider-badge-sab2" style="display: none; padding: 4px 8px; background: linear-gradient(135deg, #10b981, #3b82f6); color: white; border-radius: 4px; font-size: 0.75rem; margin-top: 4px;">
+                                    <span>🚀 Powered by AMD MI300X</span>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
                                 <input type="password" class="api-key-input" data-agent="SAB2" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label>Base URL (for vLLM)</label>
+                                <input type="text" class="base-url-input" data-agent="SAB2" value="http://localhost:8000/v1" placeholder="http://165.245.135.34:8000/v1"/>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; justify-content: space-between; align-items: center;">
@@ -385,16 +444,26 @@
                             <div class="form-group">
                                 <label>Provider</label>
                                 <select class="provider-select" data-agent="SAB3">
+                                    <option value="AMD Cloud (vLLM)" data-amd="true" data-recommended="true">
+                                        AMD Cloud (vLLM) - Hackathon Recommended
+                                    </option>
                                     <option value="Ollama">Ollama (Local)</option>
                                     <option value="OpenRouter">OpenRouter</option>
                                     <option value="NVIDIA NIM">NVIDIA NIM</option>
                                     <option value="Google Gemini">Google Gemini</option>
                                     <option value="OpenAI">OpenAI</option>
                                 </select>
+                                <div class="provider-badge" id="provider-badge-sab3" style="display: none; padding: 4px 8px; background: linear-gradient(135deg, #10b981, #3b82f6); color: white; border-radius: 4px; font-size: 0.75rem; margin-top: 4px;">
+                                    <span>🚀 Powered by AMD MI300X</span>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>API Key</label>
                                 <input type="password" class="api-key-input" data-agent="SAB3" value="" placeholder="sk-..."/>
+                            </div>
+                            <div class="form-group">
+                                <label>Base URL (for vLLM)</label>
+                                <input type="text" class="base-url-input" data-agent="SAB3" value="http://localhost:8000/v1" placeholder="http://165.245.135.34:8000/v1"/>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; justify-content: space-between; align-items: center;">
@@ -441,6 +510,147 @@
                         </table>
                         <button class="add-tool-btn" id="add-tool-btn">+ Add Tool</button>
                     </div>
+                    </div>
+                </div>
+
+                <!-- Performance Dashboard Tab -->
+                <div class="tab-content" id="performance-tab">
+                    <div class="settings-tab">
+                        <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h2>Performance Dashboard</h2>
+                                <p class="text-muted" style="font-size: 0.85rem; margin-top: 8px;">Real-time AMD GPU inference metrics and benchmark comparison.</p>
+                            </div>
+                            <div class="performance-controls">
+                                <button class="btn btn-primary" id="run-benchmark-btn">⚡ Run Benchmark</button>
+                                <button class="btn btn-secondary" id="export-benchmarks-btn">Export Report</button>
+                            </div>
+                        </div>
+
+                        <div class="performance-grid">
+                            <!-- KPI Cards -->
+                            <div class="kpi-cards">
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Total Requests</div>
+                                    <div class="kpi-value" id="kpi-total-requests">0</div>
+                                    <div class="kpi-sub">All-time requests</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Avg Tokens/sec</div>
+                                    <div class="kpi-value" id="kpi-avg-tps">0</div>
+                                    <div class="kpi-sub">Throughput metric</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-label">AMD Requests</div>
+                                    <div class="kpi-value" id="kpi-amd-count">0</div>
+                                    <div class="kpi-sub">GPU-accelerated</div>
+                                </div>
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Avg Latency</div>
+                                    <div class="kpi-value" id="kpi-avg-latency">0 ms</div>
+                                    <div class="kpi-sub">Response time</div>
+                                </div>
+                            </div>
+
+                            <!-- Performance Chart -->
+                            <div class="performance-chart">
+                                <h3>Latency Over Time</h3>
+                                <div id="latency-chart" class="chart-container">
+                                    <canvas id="latencyCanvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Benchmark Results -->
+                            <div class="benchmark-results">
+                                <h3>Benchmark Results</h3>
+                                <table class="benchmark-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Provider</th>
+                                            <th>Model</th>
+                                            <th>Latency (ms)</th>
+                                            <th>TPS</th>
+                                            <th>GPU</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="benchmark-body">
+                                        <tr>
+                                            <td colspan="5">No benchmark data yet. Click "Run Benchmark" to start.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Performance Stats -->
+                        <div class="performance-stats">
+                            <h3>Performance Summary</h3>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">Last Updated</span>
+                                    <span class="stat-value" id="last-update-time">Never</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Demo Mode</span>
+                                    <span class="stat-value" id="demo-mode-status">Enabled</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AMD Info Tab -->
+                <div class="tab-content" id="about-tab">
+                    <div class="settings-tab">
+                        <div class="settings-header">
+                            <div>
+                                <h2>About NeuroDesk AMD</h2>
+                                <p class="text-muted" style="font-size: 0.85rem; margin-top: 8px;">Powered by AMD Developer Cloud.</p>
+                            </div>
+                        </div>
+
+                        <div class="amd-info-section">
+                            <div class="amd-hero">
+                                <h3>🚀 Powered by AMD MI300X</h3>
+                                <p>NeuroDesk leverages AMD Developer Cloud with MI300X GPUs for high-performance LLM inference.</p>
+                            </div>
+
+                            <div class="amd-features">
+                                <div class="feature-card">
+                                    <h4>AMD Cloud (vLLM)</h4>
+                                    <p>Open-source models served on AMD GPUs via vLLM</p>
+                                    <span class="feature-badge">Recommended</span>
+                                </div>
+                                <div class="feature-card">
+                                    <h4>Hugging Face Compatible</h4>
+                                    <p>Deploy as Hugging Face Space with public-safe mode</p>
+                                </div>
+                                <div class="feature-card">
+                                    <h4>ROCm Ready</h4>
+                                    <p>Optimized for ROCm stack on AMD GPUs</p>
+                                </div>
+                            </div>
+
+                            <div class="amd-endpoints">
+                                <h3>Supported Model Endpoints</h3>
+                                <ul>
+                                    <li><strong>Qwen2.5 Instruct</strong> - Qwen/Qwen2.5-7B-Instruct</li>
+                                    <li><strong>Llama 3.1 Instruct</strong> - meta-llama/Llama-3.1-8B-Instruct</li>
+                                    <li><strong>Mistral Instruct</strong> - mistralai/Mistral-7B-Instruct</li>
+                                    <li><strong>DeepSeek Instruct</strong> - deepseek-ai/DeepSeek-V2.5</li>
+                                </ul>
+                            </div>
+
+                            <div class="amd-get-started">
+                                <h3>Getting Started</h3>
+                                <ol>
+                                    <li>Sign up for <a href="https://developer.amd.com/" target="_blank">AMD Developer Cloud</a></li>
+                                    <li>Create a VM with AMD MI300X</li>
+                                    <li>Install vLLM or SGLang for OpenAI-compatible endpoint</li>
+                                    <li>Configure your model endpoint and API key in Settings</li>
+                                </ol>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

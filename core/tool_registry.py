@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import re
+import importlib.util
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -199,6 +200,38 @@ class ToolRegistry:
         del self.tools[tool_name]
         self._save_registry()
         return True
+
+    async def execute_tool(self, tool_name: str, *args, **kwargs) -> Dict[str, Any]:
+        """Execute a tool by name with given arguments."""
+        if tool_name not in self.tools:
+            return {"success": False, "error": f"Tool '{tool_name}' not found"}
+
+        tool_info = self.tools[tool_name]
+        if not tool_info.installed:
+            return {"success": False, "error": f"Tool '{tool_name}' not installed"}
+
+        try:
+            spec = importlib.util.spec_from_file_location(
+                tool_name,
+                Path(tool_info.path)
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Find the tool function (named after the tool)
+            tool_func = getattr(module, tool_name, None)
+            if tool_func is None:
+                # Try to find any function in the module
+                functions = [name for name in dir(module) if not name.startswith('_') and callable(getattr(module, name))]
+                if functions:
+                    tool_func = getattr(module, functions[0])
+                else:
+                    return {"success": False, "error": "No executable function found in tool module"}
+
+            result = await tool_func(*args, **kwargs) if asyncio.iscoroutinefunction(tool_func) else tool_func(*args, **kwargs)
+            return {"success": True, "result": result}
+        except Exception as e:
+            return {"success": False, "error": str(e), "tool_name": tool_name}
 
     def get_tools_for_agent(self, agent_id: str) -> List[ToolInfo]:
         """Get tools assigned to a specific agent."""

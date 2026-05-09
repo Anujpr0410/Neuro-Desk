@@ -184,10 +184,10 @@ async def list_agents():
 
 
 @app.get("/models")
-async def get_models(provider: str, api_key: str = ""):
+async def get_models(provider: str, api_key: str = "", base_url: str = ""):
     """Fetch available models for a given provider and API key."""
     try:
-        models = await fetch_available_models(provider, api_key)
+        models = await fetch_available_models(provider, api_key, base_url)
         return {"success": True, "models": models}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -469,6 +469,7 @@ async def stream_websocket(websocket: WebSocket):
                 # Start campaign execution
                 goal = message.get("goal", "")
                 platform = message.get("platform", "All")
+                session_id = message.get("session_id")
 
                 await websocket.send_json({
                     "type": "status",
@@ -477,8 +478,48 @@ async def stream_websocket(websocket: WebSocket):
                     "platform": platform
                 })
 
-                # Simulate campaign execution with streaming
-                await simulate_campaign_execution(websocket, goal, platform)
+                # Execute real campaign with streaming
+                await execute_real_campaign(websocket, goal, platform, session_id)
+
+            elif message.get("type") == "chat":
+                # Direct chat with an agent
+                agent_id = message.get("agent", "mab").lower()
+                user_msg = message.get("message", "")
+                session_id = message.get("session_id")
+                history = message.get("history", [])
+
+                if session_id:
+                    db.save_message(session_id, agent_id.upper(), "user", user_msg)
+
+                # Get the agent instance
+                agent = None
+                if agent_id == "mab": agent = get_mab()
+                elif agent_id == "sab1": agent = get_sab1()
+                elif agent_id == "sab2": agent = get_sab2()
+                elif agent_id == "sab3": agent = get_sab3()
+
+                if agent:
+                    async def stream_callback(payload):
+                        # Add agent_id to payload for the frontend to know which chat to update
+                        payload["chat_agent"] = agent_id
+                        await websocket.send_json(payload)
+
+                    result = await agent.chat(
+                        message=user_msg,
+                        history=history,
+                        stream_callback=stream_callback
+                    )
+
+                    # Final save to DB
+                    if session_id and result.get("success"):
+                        db.save_message(session_id, agent_id.upper(), "assistant", result.get("result", ""))
+                    
+                    # Final confirmation message
+                    await websocket.send_json({
+                        "type": "chat_done",
+                        "agent": agent_id,
+                        "result": result.get("result", "")
+                    })
 
             elif message.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
@@ -489,164 +530,150 @@ async def stream_websocket(websocket: WebSocket):
         await websocket.send_json({"type": "error", "message": str(e)})
 
 
-async def simulate_campaign_execution(websocket: WebSocket, goal: str, platform: str):
-    """Simulate campaign execution with real-time updates."""
-    # MAB processing
-    await websocket.send_json({
-        "type": "mab_thinking",
-        "message": "🧠 MAB: Breaking your goal into 3 tasks..."
-    })
-
-    await asyncio.sleep(0.5)
-
-    await websocket.send_json({
-        "type": "tool_check",
-        "message": "🔍 MAB: Checking tools... SerperSearch checking..."
-    })
-
-    await asyncio.sleep(0.3)
-    await websocket.send_json({
-        "type": "tool_check",
-        "message": "🔍 MAB: Tools Status - SerperSearch available"
-    })
-
-    await asyncio.sleep(0.3)
-
-    # Task assignments
-    await websocket.send_json({
-        "type": "task_assign",
-        "message": "➡️ MAB: Assigning Task 1 to SAB1...",
-        "agent": "SAB1",
-        "task": "Research competitors and market trends"
-    })
-
-    await asyncio.sleep(0.3)
-    await websocket.send_json({
-        "type": "task_assign",
-        "message": "➡️ MAB: Assigning Task 2 to SAB2...",
-        "agent": "SAB2",
-        "task": "Build 30-day content strategy"
-    })
-
-    await asyncio.sleep(0.3)
-    await websocket.send_json({
-        "type": "task_assign",
-        "message": "➡️ MAB: Assigning Task 3 to SAB3...",
-        "agent": "SAB3",
-        "task": "Create marketing content"
-    })
-
-    # SAB1 execution
-    await websocket.send_json({
-        "type": "sab_working",
-        "agent": "SAB1",
-        "message": "🔍 SAB1: Searching for market data...",
-        "elapsed_seconds": 0
-    })
-
-    for i in range(10):
-        await asyncio.sleep(0.3)
+async def execute_real_campaign(websocket: WebSocket, goal: str, platform: str, session_id: str = None):
+    """Execute a real campaign workflow and stream updates to the websocket."""
+    try:
+        mab = get_mab()
+        
+        if session_id:
+            db.save_message(session_id, "MAB", "user", goal)
+            
+        async def stream_callback(payload):
+            # Send the payload directly to the websocket
+            await websocket.send_json(payload)
+            
+        # Run real execution
+        result = await mab.run(goal, stream_callback)
+        
+        if result.get("success"):
+            final_output = result.get("final_output", "")
+            
+            # Save to session if provided
+            if session_id:
+                db.save_message(session_id, "MAB", "assistant", final_output)
+            
+            # Store in cross-session memory
+            db.save_campaign_memory(goal, final_output)
+            
+            # Final output message for the frontend
+            await websocket.send_json({
+                "type": "final_output",
+                "result": final_output
+            })
+            
+            await websocket.send_json({
+                "type": "sab_done",
+                "agent": "MAB",
+                "message": "✅ Campaign completed successfully!"
+            })
+        else:
+            error_msg = result.get("error", "Unknown error")
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Campaign Failed: {error_msg}"
+            })
+            
+    except Exception as e:
         await websocket.send_json({
-            "type": "sab_working",
-            "agent": "SAB1",
-            "message": f"🔍 SAB1: Analyzing data... ({i+1}/10)",
-            "elapsed_seconds": (i+1) * 0.3
+            "type": "error",
+            "message": f"Execution Error: {str(e)}"
         })
 
-    await websocket.send_json({
-        "type": "sab_done",
-        "agent": "SAB1",
-        "message": "✅ SAB1: Research complete. [00:03]"
-    })
 
-    # SAB2 execution
-    await websocket.send_json({
-        "type": "sab_working",
-        "agent": "SAB2",
-        "message": "📊 SAB2: Building content strategy...",
-        "elapsed_seconds": 0
-    })
+# Frontend file serving
+@app.get("/app")
+async def serve_app():
+    """Serve the frontend application."""
+    index_path = Path("frontend/index.html")
+    if index_path.exists():
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="Frontend not found")
 
-    for i in range(8):
-        await asyncio.sleep(0.4)
-        await websocket.send_json({
-            "type": "sab_working",
-            "agent": "SAB2",
-            "message": f"📊 SAB2: Creating strategy plan... ({i+1}/8)",
-            "elapsed_seconds": (i+1) * 0.4
-        })
 
-    await websocket.send_json({
-        "type": "sab_done",
-        "agent": "SAB2",
-        "message": "✅ SAB2: Strategy complete. [00:03]"
-    })
+# --- Tool Execution Endpoints ---
 
-    # SAB3 execution
-    await websocket.send_json({
-        "type": "sab_working",
-        "agent": "SAB3",
-        "message": "✍️ SAB3: Writing marketing content...",
-        "elapsed_seconds": 0
-    })
+class ExecuteToolRequest(BaseModel):
+    tool_name: str
+    args: List[Any] = []
+    kwargs: Dict[str, Any] = {}
 
-    for i in range(12):
-        await asyncio.sleep(0.25)
-        await websocket.send_json({
-            "type": "sab_working",
-            "agent": "SAB3",
-            "message": f"✍️ SAB3: Creating content variations... ({i+1}/12)",
-            "elapsed_seconds": (i+1) * 0.25
-        })
 
-    await websocket.send_json({
-        "type": "sab_done",
-        "agent": "SAB3",
-        "message": "✅ SAB3: Content complete. [00:03]"
-    })
+@app.post("/tools/execute")
+async def execute_tool(request: ExecuteToolRequest):
+    """Execute a registered tool with given arguments."""
+    try:
+        registry = ToolRegistry()
+        result = await registry.execute_tool(request.tool_name, *request.args, **request.kwargs)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # Final synthesis
-    await websocket.send_json({
-        "type": "mab_thinking",
-        "message": "🧠 MAB: Synthesizing final campaign report..."
-    })
 
-    await asyncio.sleep(1)
+# --- Performance Endpoints ---
+@app.get("/performance/summary")
+async def get_performance_summary():
+    """Get live performance summary from all tracked inference requests."""
+    try:
+        from core.performance_logger import PerformanceLogger
+        logger = PerformanceLogger()
+        return {"success": True, "summary": logger.get_summary()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # Final output
-    final_output = f"""# Campaign Report for: {goal}
+# --- Benchmark Endpoints ---
 
-## Executive Summary
-A comprehensive marketing campaign has been planned for your goal.
+@app.get("/benchmark/providers")
+async def get_benchmark_providers():
+    """Get list of providers available for benchmarking."""
+    from core.benchmark_runner import BenchmarkRunner
+    runner = BenchmarkRunner()
+    return {"providers": runner.get_providers_to_benchmark()}
 
-## Target Platform: {platform}
 
-## Key Insights (from SAB1)
-- Market research completed
-- Competitor analysis provided
-- Audience insights gathered
+@app.get("/benchmark/run")
+async def run_benchmark(
+    provider: str,
+    model: str,
+    api_key: str = "",
+    base_url: str = ""
+):
+    """Run benchmark for a specific provider/model."""
+    try:
+        from core.benchmark_runner import BenchmarkRunner
+        runner = BenchmarkRunner()
+        results = await runner.benchmark_provider(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            base_url=base_url
+        )
+        return {"success": True, "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-## Strategy (from SAB2)
-- 30-day content calendar created
-- Content pillars defined
-- Engagement tactics recommended
 
-## Content (from SAB3)
-- Social media captions prepared
-- Ad copy created
-- Email newsletter drafts ready
+@app.get("/benchmark/comparison")
+async def get_benchmark_comparison():
+    """Get comparison across all benchmarked providers."""
+    try:
+        from core.benchmark_runner import BenchmarkRunner
+        runner = BenchmarkRunner()
+        comparisons = runner.get_comparison()
+        return {"success": True, "comparisons": comparisons}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-## Recommendations
-1. Start with content pillars
-2. Post consistently following the 30-day calendar
-3. Monitor engagement and adjust as needed
 
---- Generated by NeuroDesk AI Multi-Agent System ---
-"""
-    await websocket.send_json({
-        "type": "final_output",
-        "result": final_output
-    })
+@app.post("/benchmark/export")
+async def export_benchmark_results():
+    """Export benchmark results to markdown."""
+    try:
+        from core.benchmark_runner import BenchmarkRunner
+        runner = BenchmarkRunner()
+        content = runner.export_summary()
+        return {"success": True, "content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Frontend file serving
