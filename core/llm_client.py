@@ -75,7 +75,7 @@ class LLMClient:
         system_prompt: str = "",
         stream: bool = False,
         temperature: float = 0.7,
-        max_tokens: int = 2000
+        max_tokens: int = 1024
     ) -> Any:
         """Chat with the LLM using configured provider."""
         from core.performance_logger import PerformanceLogger

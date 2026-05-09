@@ -502,5 +502,185 @@
       "chat"
     ],
     "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:31:31.214431",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 2,
+    "completion_tokens": 28,
+    "total_tokens": 30,
+    "first_token_latency_ms": 606.37,
+    "total_latency_ms": 1672.61,
+    "tokens_per_second": 16.74,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:36:26.011903",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 2,
+    "completion_tokens": 28,
+    "total_tokens": 30,
+    "first_token_latency_ms": 842.25,
+    "total_latency_ms": 1913.43,
+    "tokens_per_second": 14.63,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:36:33.601592",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 2,
+    "completion_tokens": 28,
+    "total_tokens": 30,
+    "first_token_latency_ms": 680.55,
+    "total_latency_ms": 1685.26,
+    "tokens_per_second": 16.61,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:46:20.483972",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 1,
+    "completion_tokens": 28,
+    "total_tokens": 29,
+    "first_token_latency_ms": 629.24,
+    "total_latency_ms": 1696.43,
+    "tokens_per_second": 16.51,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:49:14.481274",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 35,
+    "completion_tokens": 25,
+    "total_tokens": 60,
+    "first_token_latency_ms": 602.32,
+    "total_latency_ms": 1556.78,
+    "tokens_per_second": 16.06,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:51:01.615419",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 1,
+    "completion_tokens": 28,
+    "total_tokens": 29,
+    "first_token_latency_ms": 762.81,
+    "total_latency_ms": 1835.24,
+    "tokens_per_second": 15.26,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:56:05.001602",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 325,
+    "completion_tokens": 9,
+    "total_tokens": 334,
+    "first_token_latency_ms": 3389.4,
+    "total_latency_ms": 3726.97,
+    "tokens_per_second": 2.41,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:57:09.426068",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 1,
+    "completion_tokens": 28,
+    "total_tokens": 29,
+    "first_token_latency_ms": 966.19,
+    "total_latency_ms": 3707.57,
+    "tokens_per_second": 7.55,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:59:16.565844",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 1,
+    "completion_tokens": 28,
+    "total_tokens": 29,
+    "first_token_latency_ms": 650.67,
+    "total_latency_ms": 1719.99,
+    "tokens_per_second": 16.28,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
+  },
+  {
+    "timestamp": "2026-05-09T12:59:22.452862",
+    "provider": "AMD Cloud (vLLM)",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "endpoint_type": "vLLM",
+    "prompt_tokens": 1,
+    "completion_tokens": 28,
+    "total_tokens": 29,
+    "first_token_latency_ms": 830.98,
+    "total_latency_ms": 1864.9,
+    "tokens_per_second": 15.01,
+    "cost_usd": null,
+    "benchmark_id": null,
+    "tags": [
+      "chat"
+    ],
+    "is_amd": true
   }
 ]

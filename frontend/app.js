@@ -197,7 +197,6 @@ function setupEventListeners() {
         const handleSend = () => {
             const text = input.value.trim();
             if (text) {
-                addMessageToChat(agent, 'user', text);
                 sendChatMessage(agent, text);
                 input.value = '';
             }

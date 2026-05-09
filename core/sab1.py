@@ -194,10 +194,19 @@ You are an AI assistant called SAB1, part of the NeuroDesk AI platform built by 
         full_output = ""
 
         # Build conversation context
+        # Build conversation context - check for duplicates and truncate
         messages = []
         if history:
-            messages.extend(history)
-        messages.append({"role": "user", "content": message})
+            # Truncate history to last 10 messages to save tokens
+            recent_history = history[-10:] if len(history) > 10 else history
+            
+            if recent_history[-1].get("content") == message:
+                messages.extend(recent_history)
+            else:
+                messages.extend(recent_history)
+                messages.append({"role": "user", "content": message})
+        else:
+            messages.append({"role": "user", "content": message})
 
         # Memory is handled by MAB, SABs rely on prompt context
         memory_context = ""

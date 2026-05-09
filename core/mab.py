@@ -545,20 +545,30 @@ Task: {task}
         start_time = time.time()
         full_output = ""
 
-        # Build conversation context
+        # Build conversation context - check for duplicates and truncate
         messages = []
         if history:
-            messages.extend(history)
-        messages.append({"role": "user", "content": message})
+            # Truncate history to last 10 messages to save tokens
+            recent_history = history[-10:] if len(history) > 10 else history
+            
+            if recent_history[-1].get("content") == message:
+                messages.extend(recent_history)
+            else:
+                messages.extend(recent_history)
+                messages.append({"role": "user", "content": message})
+        else:
+            messages.append({"role": "user", "content": message})
 
         # Inject long-term memory: query SQLite for recent campaigns
         memory_context = ""
         try:
             recent_memories = db.get_recent_memories(limit=3)
             if recent_memories:
-                memory_context = "\n\n--- LONG-TERM MEMORY (from past campaigns) ---\n"
+                memory_context = "\n\n--- LONG-TERM MEMORY (Recent Wins) ---\n"
                 for i, mem in enumerate(recent_memories, 1):
-                    memory_context += f"Campaign {i}:\nGoal: {mem['goal']}\nSummary: {mem['summary']}\n\n"
+                    # Truncate summary to prevent token overflow
+                    summary = mem['summary'][:300] + "..." if len(mem['summary']) > 300 else mem['summary']
+                    memory_context += f"Past Goal {i}: {mem['goal']}\nBrief Result: {summary}\n\n"
                 memory_context += "--- END OF MEMORY ---\n"
         except Exception:
             pass  # If memory query fails, continue without it
